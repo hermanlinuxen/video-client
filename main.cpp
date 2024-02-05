@@ -10,13 +10,15 @@ https://en.cppreference.com/w/cpp/language/ascii
 #include <stdio.h>
 #include <unistd.h>
 #include <termios.h>
+#include <thread>
 
 // Namespace
 //using namespace std;
 
 // Global Variables
 bool logging = true;
-bool logfile = true;
+bool logfile = false;
+bool collapse_threads = false;
 
 unsigned char input_character; // Input character.
 
@@ -69,17 +71,20 @@ void log(std::string message, int severity = 0) {
     }
 }
 
-void input () {
+void THREAD_input () {
     struct termios old_tattr, new_tattr;
     tcgetattr(STDIN_FILENO,&old_tattr);
     new_tattr=old_tattr;
     new_tattr.c_lflag &=(~ICANON & ~ECHO);
     tcsetattr(STDIN_FILENO,TCSANOW,&new_tattr);
     // Continous loop
-    while ( input_character != 'q' ) {
+    while ( input_character != 'q') {
         input_character=getchar();
+        if ( collapse_threads == true ) {
+            break;
+        }
         //std::cout << "Input: " << input_character << "\n";
-        //printf("%d ",c);
+        printf("%d ", input_character);
     }
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
@@ -104,11 +109,14 @@ int main() {
     printmessage = color_yellow + "message yellow" + color_reset + "\n";
     std::cout << printmessage;
 
-    std::cout << "morestuff\n";
+    std::thread input_thread(THREAD_input);
 
-    input();
-
-    std::cout << "Test\n";
+    log("Sleep start");
+    usleep(10000000);
+    log("Sleep stop");
+    collapse_threads = true;
+    
+    input_thread.join();
 
     return 0;
 }
