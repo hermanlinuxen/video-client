@@ -3,6 +3,7 @@
 /* 
 Resources
     - https://en.cppreference.com/w/cpp/language/ascii
+    - https://en.wikipedia.org/wiki/Box-drawing_character
 */
 
 // Libraries
@@ -13,11 +14,13 @@ Resources
 #include <termios.h>
 #include <thread>
 #include <fstream>
+#include <signal.h>
 
 // Global Variables
 bool debug = false;
 bool log_to_file = true;
 bool collapse_threads = false;
+bool interrupt = false;
 
 // Global Constants
 const std::string homedir = getenv("HOME");
@@ -172,12 +175,87 @@ void THREAD_input () {
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
 
+void draw_box ( int top_w, int top_h, int bot_w, int bot_h, std::string title ) {
+    std::string character;
+    int x; int y;
+    for ( x = top_h; x <= bot_h; ++x ) { // For each line downwords
+        for ( y = top_w; y <= bot_w; ++y ) { // For each column rightward
+            if ( x == top_h && y == top_w ) {
+                // top left corner
+                character = "X";
+            } else if ( x == top_h && y == bot_w ) {
+                // top right corner
+                character = "X";
+            } else if ( x == top_h ) {
+                // top bar
+                character = "-";
+            } else if ( x == bot_h && y == top_w ) {
+                // bot left corner
+                character = "X";
+            } else if ( x == bot_h && y == bot_w ) {
+                // bot right corner
+                character = "X";
+            } else if ( x == bot_h ) {
+                // bot bar
+                character = "-";
+            } else if ( y == top_w || y == bot_w ) {
+                // left and right border
+                character = "|";
+            } else {
+                continue;
+            }
+            printf("\033[%d;%dH%s", x, y, character.c_str());
+        }
+    }
+    /*
+    std::string test_text;
+    //printf("\033[%d;%dH%s", 10, 20, test_text.c_str());
+    //printf("\033[%d;%dH", h, w);
+    int x; int y;
+    for ( x = 1; x <= h; ++x ) {
+        for ( y = 1; y <= w; ++y ) {
+            if ( x == 1 || y == 1 ) {
+                test_text = "A";
+            } else if ( x == h || y == w ) {
+                test_text = "B";
+            } else {
+                test_text = "C";
+            }
+            printf("\033[%d;%dH%s", x, y, test_text.c_str());
+            //std::cout << "X: " << x << " Y: " << y << "\n";
+            //usleep(1000);
+        }
+    }
+    */
+}
+
 void draw_ui ( int w, int h ) {
-    std::cout << "Width: " << w << " Height: " << h << "\n";
+    //std::cout << "Width: " << w << " Height: " << h << "\n";
+    int border = 2;
+
+    int box1_top_w = border;
+    int box1_bot_w = w / 2 - border;
+    int box1_top_h = border;
+    int box1_bot_h = h - border;
+
+    int box2_top_w = w / 2 + border;
+    int box2_bot_w = w - border;
+    int box2_top_h = border;
+    int box2_bot_h = h - border;
+
+
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, "Title" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, "Title" );
+}
+
+void capture_interrupt(int signum){
+    interrupt = true;
+    collapse_threads = true;
 }
 
 int main ( int argc, char *argv[] ) {
 
+    signal (SIGINT, capture_interrupt);
 
     // Parse arguments
     int argument_iteration = 0;
@@ -211,35 +289,66 @@ int main ( int argc, char *argv[] ) {
     }
 
     // Local UI Elements
-    int tmp_w, tmp_h; // Used to store previous window size to detect changes.
+    int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
     struct winsize size;
+
+    std::cout << "\033[2J"; // Clear screen.
+    fputs("\e[?25l", stdout); // remove cursor
 
     std::thread input_thread(THREAD_input); // Start input thread
 
     while ( true ) { // Main loop
-
-        usleep(10000); // 10MS
 
         if ( collapse_threads == true ) {
             log("Exiting main function");
             break;
         }
 
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
-        if ( tmp_w != size.ws_col || tmp_h != size.ws_row ) {
-            tmp_w = size.ws_col;
-            tmp_h = size.ws_row;
-            draw_ui(size.ws_col, size.ws_row);
+        /*
+        std::string test_text;
+        //printf("\033[%d;%dH%s", 10, 20, test_text.c_str());
+        //printf("\033[%d;%dH", h, w);
+        int x; int y;
+        for ( x = 1; x <= h; ++x ) {
+            for ( y = 1; y <= w; ++y ) {
+                if ( x == 1 || y == 1 ) {
+                    test_text = "A";
+                } else if ( x == h || y == w ) {
+                    test_text = "B";
+                } else {
+                    test_text = "C";
+                }
+                printf("\033[%d;%dH%s", x, y, test_text.c_str());
+                //std::cout << "X: " << x << " Y: " << y << "\n";
+                //usleep(1000);
+            }
         }
+        */
+
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
+        w = size.ws_col; h = size.ws_row;
+        if ( tmp_w != w || tmp_h != h ) {
+            std::cout << "\033[2J";
+            tmp_w = w;
+            tmp_h = h;
+            draw_ui(w, h);
+        }
+
+
+        usleep(10000);
     }
 
-    log("testlog debug");
-    log("testlog error", 2);
+    fputs("\e[?25h", stdout); // Show cursor again.
 
     collapse_threads = true;
 
+    if ( interrupt ) {
+        log("Interrupt signal received", 3);
+        std::cout << "Interrupt!\n";
+        return 1;
+    }
+
     input_thread.join();
-    usleep(1000);
 
     return 0;
 }
