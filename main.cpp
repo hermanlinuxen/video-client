@@ -36,7 +36,7 @@ bool typing_mode = false;
 unsigned char char_input_character;
 
 // UI elements
-
+bool update_ui = true;
 
 // colors:
 const std::string color_reset  = "\033[0m";
@@ -45,6 +45,9 @@ const std::string color_green  = "\033[32m";
 const std::string color_yellow = "\033[33m";
 const std::string color_blue   = "\033[34m";
 const std::string color_cyan   = "\033[36m";
+
+const std::string frame_title_color = color_green;
+const std::string frame_color = color_yellow;
 
 // Input Parameter switches
 bool arg_verbose = false;
@@ -175,36 +178,75 @@ void THREAD_input () {
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
 
-void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::string title_str ) {
+void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str ) {
+    /*
+    Drawbox types: Why do i do this to myself.
+        0) Default, no special corners / walls.
+        1) Left most box with right side facing another box.
+        2) Right most box with left side facing another box.
+        3) Top box.
+        4) bottom box.
+        5) Top left.
+        6) Top Right.
+        7) Bottom Left.
+        8) Bottom Right.
+    */
     std::string character;
     int x; int y;
+    bool skip = false;
     for ( x = top_h; x <= bot_h; ++x ) { // For each line downwords
         for ( y = top_w; y <= bot_w; ++y ) { // For each column rightward
             if ( x == top_h && y == top_w ) {
                 // top left corner
-                character = "╭";
+                if ( type == 2 ) { character = "┬"; }
+                else { character = "╭"; }
+
             } else if ( x == top_h && y == bot_w ) {
                 // top right corner
-                character = "╮";
+                if ( type == 1 ) { skip = true; }
+                else { character = "╮"; }
+
             } else if ( x == top_h ) {
                 // top bar
+                //if (  ) { skip = true; }
+                //else { character = "─"; }
                 character = "─";
+
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
-                character = "╰";
+                if ( type == 2 ) { character = "┴"; }
+                else { character = "╰"; }
+
             } else if ( x == bot_h && y == bot_w ) {
                 // bot right corner
-                character = "╯";
+                if ( type == 1 ) { skip = true; }
+                else { character = "╯"; }
+
             } else if ( x == bot_h ) {
                 // bot bar
-                character = "─";
-            } else if ( y == top_w || y == bot_w ) {
-                // left and right border
+                if ( type == 3 || type == 5 || type == 6 ) { skip = true; }
+                else { character = "─"; }
+
+            } else if ( y == top_w ) {
+                // left border
+                if ( type == 2 || type == 6 || type == 8 ) { skip = true; }
+                else { character = "│"; }
+
+            } else if ( y == bot_w ) {
+                // right border
+                //if (  ) { skip = true; }
+                //else { character = "│"; }
                 character = "│";
+
             } else {
                 continue;
             }
-            printf("\033[%d;%dH%s", x, y, character.c_str());
+            if ( skip ) {
+                skip = false;
+                continue;
+            }
+            printf("\033[%d;%dH", x, y);
+            std::cout << frame_color << character.c_str() << color_reset;
         }
     }
     if ( title ) {
@@ -212,10 +254,10 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::str
         int subtract = title_str.size();
         int m = tb_w / 2;
         subtract = subtract / 2;
-        subtract = subtract + 2;
+        subtract = subtract + 1;
         m = m - subtract;
         printf("\033[%d;%dH", top_h, m);
-        std::cout << "┨ " << title_str << " ┠";
+        std::cout << frame_color << "┨ " << frame_title_color << title_str << frame_color << " ┠" << color_reset;
     }
 }
 
@@ -223,13 +265,6 @@ void draw_ui ( int w, int h ) {
     //std::cout << "Width: " << w << " Height: " << h << "\n";
     int vertical_border = 0;
     int horizontal_border = 0;
-
-    bool box_corner_overlap_vertical;
-    if ( vertical_border == 0 ) { box_corner_overlap_vertical = true; }
-    else { box_corner_overlap_vertical = false; }
-    bool box_corner_overlap_horizontal;
-    if ( horizontal_border == 0 ) { box_corner_overlap_horizontal = true; }
-    else { box_corner_overlap_horizontal = false; }
 
     int box1_top_w = horizontal_border + 1;
     int box1_bot_w = w / 2 - horizontal_border;
@@ -242,8 +277,8 @@ void draw_ui ( int w, int h ) {
     int box2_bot_h = h - vertical_border;
 
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, "Loooong ass Title here" );
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, "Title" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 1, "Loooong ass Title here" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 2, "Title" );
 }
 
 void capture_interrupt(int signum){
@@ -268,6 +303,7 @@ int main ( int argc, char *argv[] ) {
         int argument_char_1_int = argument_as_string[1];
         if ( argument_char_0_int == 45 ) {
             if ( argument_char_1_int == 45 ) { // Double dash parameter, still WIP
+                log("Double dash parameter");
                 std::cout << "Double Dash!\n";
             } else { // Single dash parameter
                 for ( int argument_char_i = 1; argument_char_i < argument_as_string.length() ; ++argument_char_i ) {
@@ -290,10 +326,12 @@ int main ( int argc, char *argv[] ) {
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
     struct winsize size;
 
-    std::cout << "\033[2J"; // Clear screen.
-    fputs("\e[?25l", stdout); // remove cursor
+    std::cout << "\033c"; // Clear screen.
+    std::cout << "\e[?25l"; // remove cursor
 
     std::thread input_thread(THREAD_input); // Start input thread
+
+    setvbuf(stdout, NULL, _IONBF, 0); // Disables buffering
 
     while ( true ) { // Main loop
 
@@ -302,43 +340,30 @@ int main ( int argc, char *argv[] ) {
             break;
         }
 
-        /*
-        std::string test_text;
-        //printf("\033[%d;%dH%s", 10, 20, test_text.c_str());
-        //printf("\033[%d;%dH", h, w);
-        int x; int y;
-        for ( x = 1; x <= h; ++x ) {
-            for ( y = 1; y <= w; ++y ) {
-                if ( x == 1 || y == 1 ) {
-                    test_text = "A";
-                } else if ( x == h || y == w ) {
-                    test_text = "B";
-                } else {
-                    test_text = "C";
-                }
-                printf("\033[%d;%dH%s", x, y, test_text.c_str());
-                //std::cout << "X: " << x << " Y: " << y << "\n";
-                //usleep(1000);
-            }
-        }
-        */
-
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
         w = size.ws_col; h = size.ws_row;
-        if ( tmp_w != w || tmp_h != h ) {
-            std::cout << "\033[2J";
+        if ( tmp_w != w || tmp_h != h || update_ui == true ) {
+            std::cout << "\033c"; // Clear screen. Also reset.
             tmp_w = w;
             tmp_h = h;
+            update_ui = false;
+
+            // This is where everything is drawn to STDOut.
             draw_ui(w, h);
+
+            /*
             std::string teststring = "test123!";
             printf("\033[%d;%dH", 10, 10);
             std::cout << "Information\n";
             printf("\033[%d;%dH", 11, 10);
-            std::cout << "More Information\n";
+            std::cout << "More Information";
+            */
+
+            std::cout << "\e[?25l"; // remove cursor
         }
 
 
-        usleep(10000);
+        usleep(1000);
     }
 
     fputs("\e[?25h", stdout); // Show cursor again.
@@ -348,7 +373,7 @@ int main ( int argc, char *argv[] ) {
     if ( interrupt ) {
         printf("\033[%d;%dH", h, 0);
         log("Interrupt signal received", 3);
-        std::cout << "Interrupt!\n";
+        std::cout << "\nInterrupt!\n";
         return 1;
     }
 
