@@ -175,77 +175,75 @@ void THREAD_input () {
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
 
-void draw_box ( int top_w, int top_h, int bot_w, int bot_h, std::string title ) {
+void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::string title_str ) {
     std::string character;
     int x; int y;
     for ( x = top_h; x <= bot_h; ++x ) { // For each line downwords
         for ( y = top_w; y <= bot_w; ++y ) { // For each column rightward
             if ( x == top_h && y == top_w ) {
                 // top left corner
-                character = "X";
+                character = "╭";
             } else if ( x == top_h && y == bot_w ) {
                 // top right corner
-                character = "X";
+                character = "╮";
             } else if ( x == top_h ) {
                 // top bar
-                character = "-";
+                character = "─";
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
-                character = "X";
+                character = "╰";
             } else if ( x == bot_h && y == bot_w ) {
                 // bot right corner
-                character = "X";
+                character = "╯";
             } else if ( x == bot_h ) {
                 // bot bar
-                character = "-";
+                character = "─";
             } else if ( y == top_w || y == bot_w ) {
                 // left and right border
-                character = "|";
+                character = "│";
             } else {
                 continue;
             }
             printf("\033[%d;%dH%s", x, y, character.c_str());
         }
     }
-    /*
-    std::string test_text;
-    //printf("\033[%d;%dH%s", 10, 20, test_text.c_str());
-    //printf("\033[%d;%dH", h, w);
-    int x; int y;
-    for ( x = 1; x <= h; ++x ) {
-        for ( y = 1; y <= w; ++y ) {
-            if ( x == 1 || y == 1 ) {
-                test_text = "A";
-            } else if ( x == h || y == w ) {
-                test_text = "B";
-            } else {
-                test_text = "C";
-            }
-            printf("\033[%d;%dH%s", x, y, test_text.c_str());
-            //std::cout << "X: " << x << " Y: " << y << "\n";
-            //usleep(1000);
-        }
+    if ( title ) {
+        int tb_w = top_w + bot_w;
+        int subtract = title_str.size();
+        int m = tb_w / 2;
+        subtract = subtract / 2;
+        subtract = subtract + 2;
+        m = m - subtract;
+        printf("\033[%d;%dH", top_h, m);
+        std::cout << "┨ " << title_str << " ┠";
     }
-    */
 }
 
 void draw_ui ( int w, int h ) {
     //std::cout << "Width: " << w << " Height: " << h << "\n";
-    int border = 2;
+    int vertical_border = 0;
+    int horizontal_border = 0;
 
-    int box1_top_w = border;
-    int box1_bot_w = w / 2 - border;
-    int box1_top_h = border;
-    int box1_bot_h = h - border;
+    bool box_corner_overlap_vertical;
+    if ( vertical_border == 0 ) { box_corner_overlap_vertical = true; }
+    else { box_corner_overlap_vertical = false; }
+    bool box_corner_overlap_horizontal;
+    if ( horizontal_border == 0 ) { box_corner_overlap_horizontal = true; }
+    else { box_corner_overlap_horizontal = false; }
 
-    int box2_top_w = w / 2 + border;
-    int box2_bot_w = w - border;
-    int box2_top_h = border;
-    int box2_bot_h = h - border;
+    int box1_top_w = horizontal_border + 1;
+    int box1_bot_w = w / 2 - horizontal_border;
+    int box1_top_h = vertical_border + 1;
+    int box1_bot_h = h - vertical_border;
+
+    int box2_top_w = w / 2 + horizontal_border;
+    int box2_bot_w = w - horizontal_border;
+    int box2_top_h = vertical_border + 1;
+    int box2_bot_h = h - vertical_border;
 
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, "Title" );
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, "Title" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, "Loooong ass Title here" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, "Title" );
 }
 
 void capture_interrupt(int signum){
@@ -332,6 +330,11 @@ int main ( int argc, char *argv[] ) {
             tmp_w = w;
             tmp_h = h;
             draw_ui(w, h);
+            std::string teststring = "test123!";
+            printf("\033[%d;%dH", 10, 10);
+            std::cout << "Information\n";
+            printf("\033[%d;%dH", 11, 10);
+            std::cout << "More Information\n";
         }
 
 
@@ -343,6 +346,7 @@ int main ( int argc, char *argv[] ) {
     collapse_threads = true;
 
     if ( interrupt ) {
+        printf("\033[%d;%dH", h, 0);
         log("Interrupt signal received", 3);
         std::cout << "Interrupt!\n";
         return 1;
