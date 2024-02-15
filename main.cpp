@@ -4,6 +4,7 @@
 Resources
     - https://en.cppreference.com/w/cpp/language/ascii
     - https://en.wikipedia.org/wiki/Box-drawing_character
+    - https://docs.invidious.io/api/
 */
 
 // Libraries
@@ -15,6 +16,7 @@ Resources
 #include <thread>
 #include <fstream>
 #include <signal.h>
+#include <bits/stdc++.h>
 
 // Global Variables
 bool debug = false;
@@ -52,6 +54,29 @@ const std::string frame_color = color_yellow;
 // Input Parameter switches
 bool arg_verbose = false;
 bool arg_help    = false;
+
+// Videos
+struct inv_videos{ // invidious videos
+    std::string URL;
+    bool used = false;
+    int published;
+    int lengthseconds;
+    int viewCount;
+    std::string title;
+    std::string publishedtext;
+    std::string author;
+    std::string author_id;
+    std::string description;
+};
+inv_videos inv_video[500];
+
+struct inv_instances{
+    std::string name;
+    bool used = false;
+    int last_get = 1;
+    int health;
+}
+inv_instances inv_instance[100];
 
 void usage () {
     const char *usage_text = R""""(usage: video-client
@@ -322,6 +347,12 @@ int main ( int argc, char *argv[] ) {
         log("Success on parsing parameter: " + argument_as_string);
     }
 
+    // Test Stuff:
+    inv_video[0].URL = "longstring1";
+    inv_video[0].title = "Title Name Here";
+
+    log(inv_video[0].title + " " + inv_video[0].URL);
+
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
     struct winsize size;
@@ -358,6 +389,7 @@ int main ( int argc, char *argv[] ) {
             printf("\033[%d;%dH", 11, 10);
             std::cout << "More Information";
             */
+
 
             std::cout << "\e[?25l"; // remove cursor
         }
