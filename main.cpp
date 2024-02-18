@@ -16,13 +16,18 @@ Resources
 #include <thread>
 #include <fstream>
 #include <signal.h>
+#include <ctime>
 #include <bits/stdc++.h>
+
+// Curl
+#include <curl/curl.h>
 
 // Global Variables
 bool debug = false;
 bool log_to_file = true;
 bool collapse_threads = false;
 bool interrupt = false;
+int epoch_time;
 
 // Global Constants
 const std::string homedir = getenv("HOME");
@@ -55,7 +60,7 @@ const std::string frame_color = color_yellow;
 bool arg_verbose = false;
 bool arg_help    = false;
 
-// Videos
+// Videos vector for storing video details.
 struct inv_videos{ // invidious videos
     std::string URL;
     bool used = false;
@@ -68,15 +73,14 @@ struct inv_videos{ // invidious videos
     std::string author_id;
     std::string description;
 };
-inv_videos inv_video[500];
+std::vector<inv_videos> video;
 
 struct inv_instances{
     std::string name;
     bool used = false;
     int last_get = 1;
     int health;
-}
-inv_instances inv_instance[100];
+};
 
 void usage () {
     const char *usage_text = R""""(usage: video-client
@@ -138,6 +142,23 @@ void log ( std::string message, int severity = 0 ) {
         }
     }
     log_main(message, severity, log_to_file);
+}
+
+// Curl
+std::pair<std::string, CURLcode> fetch (const std::string& url) {
+    CURL* curl = curl_easy_init();
+    std::string response;
+    CURLcode res = CURLE_FAILED_INIT;
+
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+    }
+
+    return std::make_pair(response, res);
 }
 
 // Exit check thread, multiple keys return 27 including escape and arrow keys.
@@ -306,7 +327,7 @@ void draw_ui ( int w, int h ) {
     draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 2, "Title" );
 }
 
-void capture_interrupt(int signum){
+void capture_interrupt (int signum) {
     interrupt = true;
     collapse_threads = true;
 }
@@ -348,10 +369,28 @@ int main ( int argc, char *argv[] ) {
     }
 
     // Test Stuff:
-    inv_video[0].URL = "longstring1";
-    inv_video[0].title = "Title Name Here";
+    //std::vector<inv_videos> video;
+    video.push_back(inv_videos()); // Created initial element at index 0.
 
-    log(inv_video[0].title + " " + inv_video[0].URL);
+
+
+    video[0].URL = "longstring1";
+    video[0].title = "Title Name Here";
+    video.push_back(inv_videos());
+    video[1].URL = "Anotherlongstring1";
+    video[1].title = "Another Title Name Here";
+
+    log("Vector 0: " + video[0].title + " " + video[0].URL);
+    log("Vector 1: " + video[1].title + " " + video[1].URL);
+
+    std::string url = "https://inv.tux.pizza/api/v1/videos/SpeSpA3e56A?fields=title,videoId";
+    auto result = fetch(url);
+
+    if ( result.second == CURLE_OK ) {
+        log("JSON data fetched successfully: " + result.first);
+    } else {
+        log("Failed to fetch JSON data from URL. Error: " + std::to_string(curl_easy_strerror(result.second)));
+    }
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
@@ -365,6 +404,8 @@ int main ( int argc, char *argv[] ) {
     setvbuf(stdout, NULL, _IONBF, 0); // Disables buffering
 
     while ( true ) { // Main loop
+
+        epoch_time = std::time(0); // Update epoch time variable
 
         if ( collapse_threads == true ) {
             log("Exiting main function");
@@ -381,15 +422,6 @@ int main ( int argc, char *argv[] ) {
 
             // This is where everything is drawn to STDOut.
             draw_ui(w, h);
-
-            /*
-            std::string teststring = "test123!";
-            printf("\033[%d;%dH", 10, 10);
-            std::cout << "Information\n";
-            printf("\033[%d;%dH", 11, 10);
-            std::cout << "More Information";
-            */
-
 
             std::cout << "\e[?25l"; // remove cursor
         }
