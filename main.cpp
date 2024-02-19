@@ -22,6 +22,9 @@ Resources
 // Curl
 #include <curl/curl.h>
 
+// Json
+#include "include/nlohmann/json.hpp"
+
 // Global Variables
 bool debug = false;
 bool log_to_file = true;
@@ -144,21 +147,46 @@ void log ( std::string message, int severity = 0 ) {
     log_main(message, severity, log_to_file);
 }
 
+// Write Callback
+size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *data) {
+    size_t total_size = size * nmemb;
+    data->append((char*)contents, total_size);
+    return total_size;
+}
+
 // Curl
-std::pair<std::string, CURLcode> fetch (const std::string& url) {
-    CURL* curl = curl_easy_init();
-    std::string response;
-    CURLcode res = CURLE_FAILED_INIT;
+std::pair<bool, std::string> fetch (const std::string& url) {
+    CURL *curl;
+    CURLcode res;
+    std::string output;
+    bool success = false;
+
+    // init curl
+    curl = curl_easy_init();
 
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        //curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        // Set callback
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+        // run request
         res = curl_easy_perform(curl);
+        // Check for errors
+        std::string curl_error = curl_easy_strerror(res);
+        if (res != CURLE_OK) {
+            log("CURL failed: " + curl_error + ", URL: " + url, 2);
+            success = false;
+        } else {
+            log("CURL successfully requested " + url + " Result: " + output);
+            success = true;
+        }
+        // Clean up
         curl_easy_cleanup(curl);
+    } else {
+        log("Request failed! " + url, 2);
+        success = false;
     }
-
-    return std::make_pair(response, res);
+    return std::make_pair(success, output);
 }
 
 // Exit check thread, multiple keys return 27 including escape and arrow keys.
@@ -383,15 +411,11 @@ int main ( int argc, char *argv[] ) {
     log("Vector 0: " + video[0].title + " " + video[0].URL);
     log("Vector 1: " + video[1].title + " " + video[1].URL);
 
-    std::string url = "https://inv.tux.pizza/api/v1/videos/SpeSpA3e56A?fields=title,videoId";
-    auto result = fetch(url);
+    //std::string url = "https://inv.tux.pizza/api/v1/videos/SpeSpA3e56A?fields=title,videoId";
 
-    if ( result.second == CURLE_OK ) {
-        log("JSON data fetched successfully: " + result.first);
-    } else {
-        //std::string tmplogmsg = std::to_string(result.second);
-        log("Failed to fetch JSON data from URL. Error: ");
-    }
+    std::string url = "https://thissitedoesnotexits.wooooohoooo";
+
+    auto result = fetch(url);
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
