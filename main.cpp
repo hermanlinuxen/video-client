@@ -42,7 +42,7 @@ const std::string configdir = userconfigdir + "/video-client";
 const std::string logfile = configdir + "/video-client.log";
 
 // URL Variables
-const std::string URL_instances = "https://api.invidious.io/instances.json?pretty=1&sort_by=type,users";
+const std::string URL_instances = "https://api.invidious.io/instances.json?&sort_by=type,users";
 
 // input validation variables
 int input_character;
@@ -187,7 +187,7 @@ std::pair<bool, std::string> fetch (const std::string& url) {
             log("CURL failed: " + curl_error + ", URL: " + url, 2);
             success = false;
         } else {
-            log("CURL successfully requested " + url + " Result: " + output);
+            log("CURL successfully requested " + url);
             success = true;
         }
         // Clean up
@@ -201,9 +201,14 @@ std::pair<bool, std::string> fetch (const std::string& url) {
 
 void processJson(const json& data) { // Testing
     for (const auto& entry : data) {
+        std::string headname = entry[0];
+        log("Head: " + headname);
         // Extracting variables
         bool apiEnabled = entry[1]["api"];
-        std::string name = entry[1]["monitor"]["name"];
+        std::string name;
+        if (!entry[1]["monitor"].is_null()) {
+            name = entry[1]["monitor"]["name"];
+        }
         std::string uri = entry[1]["uri"];
         std::string type = entry[1]["type"];
         std::string region = entry[1]["region"];
