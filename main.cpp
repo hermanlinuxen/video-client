@@ -25,6 +25,9 @@ Resources
 // Json
 #include "include/nlohmann/json.hpp"
 
+// Namespaces
+using json = nlohmann::json;
+
 // Global Variables
 bool debug = false;
 bool log_to_file = true;
@@ -37,6 +40,9 @@ const std::string homedir = getenv("HOME");
 const std::string userconfigdir = homedir + "/.config";
 const std::string configdir = userconfigdir + "/video-client";
 const std::string logfile = configdir + "/video-client.log";
+
+// URL Variables
+const std::string URL_instances = "https://api.invidious.io/instances.json?pretty=1&sort_by=type,users";
 
 // input validation variables
 int input_character;
@@ -79,10 +85,14 @@ struct inv_videos{ // invidious videos
 std::vector<inv_videos> video;
 
 struct inv_instances{
-    std::string name;
-    bool used = false;
-    int last_get = 1;
-    int health;
+    bool enabled; // if the program is going to use this instance
+    bool api_enabled; // if the API is enabled for this instance
+    std::string name; // instance name, got from top of array
+    std::string URL; // URL
+    std::string type; // https or other
+    int last_get = 1; // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
+    int health; // instance health 90d as int
+    std::string region; // instance region
 };
 
 void usage () {
@@ -187,6 +197,25 @@ std::pair<bool, std::string> fetch (const std::string& url) {
         success = false;
     }
     return std::make_pair(success, output);
+}
+
+void processJson(const json& data) { // Testing
+    for (const auto& entry : data) {
+        // Extracting variables
+        bool apiEnabled = entry[1]["api"];
+        std::string name = entry[1]["monitor"]["name"];
+        std::string uri = entry[1]["uri"];
+        std::string type = entry[1]["type"];
+        std::string region = entry[1]["region"];
+
+        // Printing variables
+        std::cout << "API Enabled: " << std::boolalpha << apiEnabled << std::endl;
+        std::cout << "Name: " << name << std::endl;
+        std::cout << "URI: " << uri << std::endl;
+        std::cout << "Type: " << type << std::endl;
+        std::cout << "Region: " << region << std::endl;
+        std::cout << std::endl;
+    }
 }
 
 // Exit check thread, multiple keys return 27 including escape and arrow keys.
@@ -413,9 +442,17 @@ int main ( int argc, char *argv[] ) {
 
     //std::string url = "https://inv.tux.pizza/api/v1/videos/SpeSpA3e56A?fields=title,videoId";
 
-    std::string url = "https://thissitedoesnotexits.wooooohoooo";
+    auto result = fetch(URL_instances);
+    if ( result.first ) {
+        try {
+            json data = json::parse(result.second);
+            processJson(data);
+        } catch (const std::exception& e) {
+            std::cout << "Error parsing JSON: " << e.what() << "\n";
+        }
+    }
 
-    auto result = fetch(url);
+    usleep(100000000);
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
