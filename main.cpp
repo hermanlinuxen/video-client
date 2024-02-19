@@ -152,7 +152,7 @@ std::pair<std::string, CURLcode> fetch (const std::string& url) {
 
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        //curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
         res = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
@@ -389,7 +389,8 @@ int main ( int argc, char *argv[] ) {
     if ( result.second == CURLE_OK ) {
         log("JSON data fetched successfully: " + result.first);
     } else {
-        log("Failed to fetch JSON data from URL. Error: " + std::to_string(curl_easy_strerror(result.second)));
+        //std::string tmplogmsg = std::to_string(result.second);
+        log("Failed to fetch JSON data from URL. Error: ");
     }
 
     // Local UI Elements
