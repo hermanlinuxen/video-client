@@ -1,0 +1,78 @@
+[
+  [
+    "invidious.fdn.fr",
+    {
+      "region": "FR",
+      "stats": {},
+      "cors": false,
+      "api": false,
+      "type": "https",
+      "uri": "https://invidious.fdn.fr",
+      "monitor": {
+        "name": "invidious.fdn.fr",
+        "url": null,
+        "type": "HTTP(s)",
+        "dailyRatios": [
+        ],
+        "90dRatio": {
+          "ratio": "99.996",
+          "label": "warning"
+        },
+        "30dRatio": {
+          "ratio": "99.988",
+          "label": "warning"
+        }
+      }
+    }
+  ],
+  [
+    "invidious.nerdvpn.de",
+    {
+      "flag": "🇩🇪",
+      "region": "DE",
+      "stats": {
+        "version": "2.0",
+        "software": {
+          "name": "invidious",
+          "version": "2024.02.19-e8a3698",
+          "branch": "master"
+        },
+        "openRegistrations": true,
+        "usage": {
+          "users": {
+            "total": 5008,
+            "activeHalfyear": 1614,
+            "activeMonth": 518
+          }
+        },
+        "metadata": {
+          "updatedAt": 1708374002,
+          "lastChannelRefreshedAt": 1708373427
+        },
+        "playback": {}
+      },
+      "cors": true,
+      "api": true,
+      "type": "https",
+      "uri": "https://invidious.nerdvpn.de",
+      "monitor": {
+        "monitorId": 791917306,
+        "createdAt": 1654077527,
+        "statusClass": "success",
+        "name": "invidious.nerdvpn.de",
+        "url": null,
+        "type": "HTTP(s)",
+        "dailyRatios": [
+        ],
+        "90dRatio": {
+          "ratio": "99.860",
+          "label": "warning"
+        },
+        "30dRatio": {
+          "ratio": "99.795",
+          "label": "warning"
+        }
+      }
+    }
+  ]
+]
