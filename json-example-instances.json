@@ -1,78 +1,1538 @@
 [
-  [
-    "invidious.fdn.fr",
-    {
-      "region": "FR",
-      "stats": {},
-      "cors": false,
-      "api": false,
-      "type": "https",
-      "uri": "https://invidious.fdn.fr",
-      "monitor": {
-        "name": "invidious.fdn.fr",
-        "url": null,
-        "type": "HTTP(s)",
-        "dailyRatios": [
-        ],
-        "90dRatio": {
-          "ratio": "99.996",
-          "label": "warning"
-        },
-        "30dRatio": {
-          "ratio": "99.988",
-          "label": "warning"
-        }
-      }
-    }
-  ],
-  [
-    "invidious.nerdvpn.de",
-    {
-      "flag": "🇩🇪",
-      "region": "DE",
-      "stats": {
-        "version": "2.0",
-        "software": {
-          "name": "invidious",
-          "version": "2024.02.19-e8a3698",
-          "branch": "master"
-        },
-        "openRegistrations": true,
-        "usage": {
-          "users": {
-            "total": 5008,
-            "activeHalfyear": 1614,
-            "activeMonth": 518
+    [
+      "invidious.fdn.fr",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.18-b36ddfbd",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 33087,
+              "activeHalfyear": 7551,
+              "activeMonth": 1134
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376819,
+            "lastChannelRefreshedAt": 1708376656
+          },
+          "playback": {
+            "totalRequests": 37759,
+            "successfulRequests": 27277,
+            "ratio": 0.72
           }
         },
-        "metadata": {
-          "updatedAt": 1708374002,
-          "lastChannelRefreshedAt": 1708373427
-        },
-        "playback": {}
-      },
-      "cors": true,
-      "api": true,
-      "type": "https",
-      "uri": "https://invidious.nerdvpn.de",
-      "monitor": {
-        "monitorId": 791917306,
-        "createdAt": 1654077527,
-        "statusClass": "success",
-        "name": "invidious.nerdvpn.de",
-        "url": null,
-        "type": "HTTP(s)",
-        "dailyRatios": [
-        ],
-        "90dRatio": {
-          "ratio": "99.860",
-          "label": "warning"
-        },
-        "30dRatio": {
-          "ratio": "99.795",
-          "label": "warning"
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.fdn.fr",
+        "monitor": {
+          "monitorId": 794984507,
+          "createdAt": 1691614763,
+          "statusClass": "success",
+          "name": "invidious.fdn.fr",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.996",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.988",
+            "label": "warning"
+          }
         }
       }
-    }
+    ],
+    [
+      "vid.puffyan.us",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 20603,
+              "activeHalfyear": 7489,
+              "activeMonth": 689
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377121,
+            "lastChannelRefreshedAt": 1708375562
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://vid.puffyan.us",
+        "monitor": {
+          "monitorId": 786957161,
+          "createdAt": 1610988560,
+          "statusClass": "success",
+          "name": "vid.puffyan.us",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.862",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.988",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.nerdvpn.de",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 5013,
+              "activeHalfyear": 1619,
+              "activeMonth": 522
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377003,
+            "lastChannelRefreshedAt": 1708374413
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.nerdvpn.de",
+        "monitor": {
+          "monitorId": 791917306,
+          "createdAt": 1654077527,
+          "statusClass": "success",
+          "name": "invidious.nerdvpn.de",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.860",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.795",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.projectsegfau.lt",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 4496,
+              "activeHalfyear": 1188,
+              "activeMonth": 175
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377011,
+            "lastChannelRefreshedAt": 1708376260
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.projectsegfau.lt",
+        "monitor": {
+          "monitorId": 794315823,
+          "createdAt": 1683544029,
+          "statusClass": "success",
+          "name": "invidious.projectsegfau.lt",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "97.041",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.195",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.lunar.icu",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.15-1e6ec60",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 3082,
+              "activeHalfyear": 2086,
+              "activeMonth": 271
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377002,
+            "lastChannelRefreshedAt": 1708376783
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.lunar.icu",
+        "monitor": {
+          "monitorId": 793739164,
+          "createdAt": 1676621138,
+          "statusClass": "success",
+          "name": "invidious.lunar.icu",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.099",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "98.835",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.flokinet.to",
+      {
+        "flag": "🇷🇴",
+        "region": "RO",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.15-1e6ec605",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 2938,
+              "activeHalfyear": 1110,
+              "activeMonth": 340
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377012,
+            "lastChannelRefreshedAt": 1708368936
+          },
+          "playback": {
+            "totalRequests": 19,
+            "successfulRequests": 19,
+            "ratio": 1.0
+          }
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.flokinet.to",
+        "monitor": {
+          "monitorId": 794683574,
+          "createdAt": 1687965741,
+          "statusClass": "success",
+          "name": "invidious.flokinet.to",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "97.471",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "95.556",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "inv.tux.pizza",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.12-cf68620",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 2831,
+              "activeHalfyear": 2001,
+              "activeMonth": 312
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708372348,
+            "lastChannelRefreshedAt": 1708372198
+          },
+          "playback": {
+            "totalRequests": 21,
+            "successfulRequests": 21,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://inv.tux.pizza",
+        "monitor": {
+          "monitorId": 794069045,
+          "createdAt": 1680613302,
+          "statusClass": "success",
+          "name": "inv.tux.pizza",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "98.931",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "98.246",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.privacydev.net",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.15-1e6ec605",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 2364,
+              "activeHalfyear": 1387,
+              "activeMonth": 233
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377003,
+            "lastChannelRefreshedAt": 1708315166
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.privacydev.net",
+        "monitor": {
+          "monitorId": 792858945,
+          "createdAt": 1665731512,
+          "statusClass": "success",
+          "name": "invidious.privacydev.net",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "98.799",
+              "label": "warning"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "96.774",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "94.172",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "iv.ggtyler.dev",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.15-1e6ec60",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 2040,
+              "activeHalfyear": 2040,
+              "activeMonth": 462
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377063,
+            "lastChannelRefreshedAt": 1708376838
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://iv.ggtyler.dev",
+        "monitor": {
+          "monitorId": 793362033,
+          "createdAt": 1672350409,
+          "statusClass": "success",
+          "name": "iv.ggtyler.dev",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.992",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.988",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "inv.nadeko.net",
+      {
+        "flag": "🇨🇱",
+        "region": "CL",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.13-6f2d1307",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 1742,
+              "activeHalfyear": 1097,
+              "activeMonth": 179
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376880,
+            "lastChannelRefreshedAt": 1708374750
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://inv.nadeko.net",
+        "monitor": null
+      }
+    ],
+    [
+      "yt.artemislena.eu",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 1585,
+              "activeHalfyear": 54,
+              "activeMonth": 10
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377004,
+            "lastChannelRefreshedAt": 1708373266
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://yt.artemislena.eu",
+        "monitor": {
+          "monitorId": 789232281,
+          "createdAt": 1632067281,
+          "statusClass": "success",
+          "name": "yt.artemislena.eu",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.653",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.955",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.protokolla.fi",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 1582,
+              "activeHalfyear": 1136,
+              "activeMonth": 134
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377006,
+            "lastChannelRefreshedAt": 1708376046
+          },
+          "playback": {
+            "totalRequests": 29,
+            "successfulRequests": 29,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.protokolla.fi",
+        "monitor": {
+          "monitorId": 794316310,
+          "createdAt": 1683548615,
+          "statusClass": "success",
+          "name": "invidious.protokolla.fi",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "98.569",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "97.938",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "iv.nboeck.de",
+      {
+        "flag": "🇫🇮",
+        "region": "FI",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 1451,
+              "activeHalfyear": 1239,
+              "activeMonth": 520
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376712,
+            "lastChannelRefreshedAt": 1708371498
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://iv.nboeck.de",
+        "monitor": {
+          "monitorId": 794573733,
+          "createdAt": 1686754923,
+          "statusClass": "success",
+          "name": "iv.nboeck.de",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.963",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "100.00",
+            "label": "success"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.private.coffee",
+      {
+        "flag": "🇦🇹",
+        "region": "AT",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.12-5c0b6d8a",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 900,
+              "activeHalfyear": 897,
+              "activeMonth": 284
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708353273,
+            "lastChannelRefreshedAt": 1708352548
+          },
+          "playback": {
+            "totalRequests": 211051,
+            "successfulRequests": 48139,
+            "ratio": 0.23
+          }
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.private.coffee",
+        "monitor": {
+          "monitorId": 794714245,
+          "createdAt": 1688367587,
+          "statusClass": "success",
+          "name": "invidious.private.coffee",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.567",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.237",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "iv.datura.network",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 846,
+              "activeHalfyear": 846,
+              "activeMonth": 326
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376994,
+            "lastChannelRefreshedAt": 1708374501
+          },
+          "playback": {
+            "totalRequests": 2898,
+            "successfulRequests": 2605,
+            "ratio": 0.9
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://iv.datura.network",
+        "monitor": {
+          "monitorId": 794811822,
+          "createdAt": 1689436809,
+          "statusClass": "success",
+          "name": "iv.datura.network",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "98.252",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "98.429",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "inv.us.projectsegfau.lt",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 810,
+              "activeHalfyear": 698,
+              "activeMonth": 121
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377035,
+            "lastChannelRefreshedAt": 1708374199
+          },
+          "playback": {}
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://inv.us.projectsegfau.lt",
+        "monitor": {
+          "monitorId": 795270100,
+          "createdAt": 1694532468,
+          "statusClass": "success",
+          "name": "inv.us.projectsegfau.lt",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "96.219",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "88.675",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.perennialte.ch",
+      {
+        "flag": "🇦🇺",
+        "region": "AU",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 698,
+              "activeHalfyear": 694,
+              "activeMonth": 167
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377015,
+            "lastChannelRefreshedAt": 1708357100
+          },
+          "playback": {
+            "totalRequests": 1,
+            "successfulRequests": 1,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.perennialte.ch",
+        "monitor": {
+          "monitorId": 794978295,
+          "createdAt": 1691558288,
+          "statusClass": "success",
+          "name": "invidious.perennialte.ch",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "99.671",
+              "label": "warning"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.966",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "100.00",
+            "label": "success"
+          }
+        }
+      }
+    ],
+    [
+      "inv.n8pjl.ca",
+      {
+        "flag": "🇨🇦",
+        "region": "CA",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.12-5c0b6d8a",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 633,
+              "activeHalfyear": 633,
+              "activeMonth": 448
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377051,
+            "lastChannelRefreshedAt": 1708372412
+          },
+          "playback": {
+            "totalRequests": 34,
+            "successfulRequests": 34,
+            "ratio": 1.0
+          }
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://inv.n8pjl.ca",
+        "monitor": {
+          "monitorId": 795785436,
+          "createdAt": 1701206822,
+          "statusClass": "success",
+          "name": "inv.n8pjl.ca",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "0.000",
+              "label": "black"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.878",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.904",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.drgns.space",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 527,
+              "activeHalfyear": 527,
+              "activeMonth": 277
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376832,
+            "lastChannelRefreshedAt": 1708376091
+          },
+          "playback": {
+            "totalRequests": 229,
+            "successfulRequests": 229,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.drgns.space",
+        "monitor": {
+          "monitorId": 794897157,
+          "createdAt": 1690505969,
+          "statusClass": "success",
+          "name": "invidious.drgns.space",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "96.872",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "93.258",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.einfachzocken.eu",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 450,
+              "activeHalfyear": 450,
+              "activeMonth": 79
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376801,
+            "lastChannelRefreshedAt": 1708373132
+          },
+          "playback": {
+            "totalRequests": 2,
+            "successfulRequests": 2,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://invidious.einfachzocken.eu",
+        "monitor": {
+          "monitorId": 795113379,
+          "createdAt": 1692571152,
+          "statusClass": "success",
+          "name": "invidious.einfachzocken.eu",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.947",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.964",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "invidious.jing.rocks",
+      {
+        "flag": "🇯🇵",
+        "region": "JP",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.12-5c0b6d8a",
+            "branch": "master"
+          },
+          "openRegistrations": true,
+          "usage": {
+            "users": {
+              "total": 203,
+              "activeHalfyear": 203,
+              "activeMonth": 201
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377013,
+            "lastChannelRefreshedAt": 1708377013
+          },
+          "playback": {
+            "totalRequests": 53,
+            "successfulRequests": 53,
+            "ratio": 1.0
+          }
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://invidious.jing.rocks",
+        "monitor": {
+          "monitorId": 796077171,
+          "createdAt": 1704167292,
+          "statusClass": "success",
+          "name": "invidious.jing.rocks",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "0.000",
+              "label": "black"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.981",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "100.00",
+            "label": "success"
+          }
+        }
+      }
+    ],
+    [
+      "yt.drgnz.club",
+      {
+        "flag": "🇨🇿",
+        "region": "CZ",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.15-1e6ec605",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 2,
+              "activeHalfyear": 2,
+              "activeMonth": 2
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377000,
+            "lastChannelRefreshedAt": 1708376403
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://yt.drgnz.club",
+        "monitor": {
+          "monitorId": 794776050,
+          "createdAt": 1689073302,
+          "statusClass": "success",
+          "name": "yt.drgnz.club",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "98.958",
+              "label": "warning"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "98.764",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.425",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "youtube.owacon.moe",
+      {
+        "flag": "🇯🇵",
+        "region": "JP",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.14-dcfef34c",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 1,
+              "activeHalfyear": 1,
+              "activeMonth": 1
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376887,
+            "lastChannelRefreshedAt": 1708354368
+          },
+          "playback": {
+            "totalRequests": 462,
+            "successfulRequests": 0,
+            "ratio": 0.0
+          }
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://youtube.owacon.moe",
+        "monitor": null
+      }
+    ],
+    [
+      "yt.cdaut.de",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-e8a3698",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 1,
+              "activeHalfyear": 1,
+              "activeMonth": 1
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377018,
+            "lastChannelRefreshedAt": 1708376844
+          },
+          "playback": {
+            "totalRequests": 270,
+            "successfulRequests": 270,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://yt.cdaut.de",
+        "monitor": {
+          "monitorId": 795009853,
+          "createdAt": 1691958550,
+          "statusClass": "success",
+          "name": "yt.cdaut.de",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "99.901",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "100.00",
+            "label": "success"
+          }
+        }
+      }
+    ],
+    [
+      "yewtu.be",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.19-63d1032",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 1,
+              "activeHalfyear": 0,
+              "activeMonth": 0
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708377024,
+            "lastChannelRefreshedAt": 1708376521
+          },
+          "playback": {}
+        },
+        "cors": false,
+        "api": false,
+        "type": "https",
+        "uri": "https://yewtu.be",
+        "monitor": {
+          "monitorId": 784257752,
+          "createdAt": 1580577118,
+          "statusClass": "success",
+          "name": "yewtu.be",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "99.308",
+              "label": "warning"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "97.566",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "99.521",
+            "label": "warning"
+          }
+        }
+      }
+    ],
+    [
+      "iv.melmac.space",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": {
+          "version": "2.0",
+          "software": {
+            "name": "invidious",
+            "version": "2024.02.12-cf686202",
+            "branch": "master"
+          },
+          "openRegistrations": false,
+          "usage": {
+            "users": {
+              "total": 0,
+              "activeHalfyear": 0,
+              "activeMonth": 0
+            }
+          },
+          "metadata": {
+            "updatedAt": 1708376645,
+            "lastChannelRefreshedAt": 0
+          },
+          "playback": {
+            "totalRequests": 1187,
+            "successfulRequests": 1187,
+            "ratio": 1.0
+          }
+        },
+        "cors": true,
+        "api": true,
+        "type": "https",
+        "uri": "https://iv.melmac.space",
+        "monitor": {
+          "monitorId": 793141645,
+          "createdAt": 1669646418,
+          "statusClass": "success",
+          "name": "iv.melmac.space",
+          "url": null,
+          "type": "HTTP(s)",
+          "dailyRatios": [
+            {
+              "ratio": "100.00",
+              "label": "success"
+            }
+          ],
+          "90dRatio": {
+            "ratio": "97.132",
+            "label": "warning"
+          },
+          "30dRatio": {
+            "ratio": "100.00",
+            "label": "success"
+          }
+        }
+      }
+    ],
+    [
+      "http://pjsfhqamc7k6htnumrvn4cwqqdoggeepj7u5viyimgnxg3gar72q.b32.i2p",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "i2p",
+        "uri": "http://pjsfhqamc7k6htnumrvn4cwqqdoggeepj7u5viyimgnxg3gar72q.b32.i2p",
+        "monitor": null
+      }
+    ],
+    [
+      "http://pjsfi2szfkb4guqzmfmlyq4no46fayertjrwt4h2uughccrh2lvq.b32.i2p",
+      {
+        "flag": "🇱🇺",
+        "region": "LU",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "i2p",
+        "uri": "http://pjsfi2szfkb4guqzmfmlyq4no46fayertjrwt4h2uughccrh2lvq.b32.i2p",
+        "monitor": null
+      }
+    ],
+    [
+      "zzlsbhhfvwg3oh36tcvx4r7n6jrw7zibvyvfxqlodcwn3mfrvzuq.b32.i2p",
+      {
+        "flag": "🇨🇱",
+        "region": "CL",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "i2p",
+        "uri": "http://zzlsbhhfvwg3oh36tcvx4r7n6jrw7zibvyvfxqlodcwn3mfrvzuq.b32.i2p",
+        "monitor": null
+      }
+    ],
+    [
+      "grwp24hodrefzvjjuccrkw3mjq4tzhaaq32amf33dzpmuxe7ilepcmad.onion",
+      {
+        "flag": "🇺🇸",
+        "region": "US",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://grwp24hodrefzvjjuccrkw3mjq4tzhaaq32amf33dzpmuxe7ilepcmad.onion",
+        "monitor": null
+      }
+    ],
+    [
+      "ng27owmagn5amdm7l5s3rsqxwscl5ynppnis5dqcasogkyxcfqn7psid.onion",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://ng27owmagn5amdm7l5s3rsqxwscl5ynppnis5dqcasogkyxcfqn7psid.onion",
+        "monitor": null
+      }
+    ],
+    [
+      "invidious.g4c3eya4clenolymqbpgwz3q3tawoxw56yhzk4vugqrl6dtu3ejvhjid.onion",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://invidious.g4c3eya4clenolymqbpgwz3q3tawoxw56yhzk4vugqrl6dtu3ejvhjid.onion",
+        "monitor": null
+      }
+    ],
+    [
+      "inv.pjsfkvpxlinjamtawaksbnnaqs2fc2mtvmozrzckxh7f3kis6yea25ad.onion",
+      {
+        "flag": "🇫🇷",
+        "region": "FR",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://inv.pjsfkvpxlinjamtawaksbnnaqs2fc2mtvmozrzckxh7f3kis6yea25ad.onion",
+        "monitor": null
+      }
+    ],
+    [
+      "inv.nadekonw7plitnjuawu6ytjsl7jlglk2t6pyq6eftptmiv3dvqndwvyd.onion",
+      {
+        "flag": "🇨🇱",
+        "region": "CL",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://inv.nadekonw7plitnjuawu6ytjsl7jlglk2t6pyq6eftptmiv3dvqndwvyd.onion",
+        "monitor": null
+      }
+    ],
+    [
+      "jemgkaq2xibfu37hm2xojsxoi7djtwb25w6krhl63lhn52xfzgeyc2ad.onion",
+      {
+        "flag": "🇩🇪",
+        "region": "DE",
+        "stats": null,
+        "cors": null,
+        "api": null,
+        "type": "onion",
+        "uri": "http://jemgkaq2xibfu37hm2xojsxoi7djtwb25w6krhl63lhn52xfzgeyc2ad.onion",
+        "monitor": null
+      }
+    ]
   ]
-]
+  
