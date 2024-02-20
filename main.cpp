@@ -82,7 +82,7 @@ struct inv_videos{ // invidious videos
     std::string author_id;
     std::string description;
 };
-std::vector<inv_videos> video;
+std::vector<inv_videos> inv_videos_vector;
 
 struct inv_instances{
     bool enabled; // if the program is going to use this instance
@@ -94,6 +94,7 @@ struct inv_instances{
     int health; // instance health 90d as int
     std::string region; // instance region
 };
+std::vector<inv_instances> inv_instances_vector;
 
 void usage () {
     const char *usage_text = R""""(usage: video-client
@@ -199,18 +200,56 @@ std::pair<bool, std::string> fetch (const std::string& url) {
     return std::make_pair(success, output);
 }
 
-void processJson(const json& data) { // Testing
-    for (const auto& entry : data) {
-        std::string headname = entry[0];
+void parse_instances(const json& data) {
+    /*
+        Required values:
+            bool enabled;       // if the program is going to use this instance
+            bool api_enabled;   // if the API is enabled for this instance
+            std::string name;   // instance name, got from top of array
+            std::string URL;    // URL
+            std::string type;   // https or other
+            int last_get = 1;   // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
+            int health;         // instance health 90d as int
+            std::string region; // instance region
+    */
+
+    // clear instances vector
+    inv_instances_vector.clear();
+
+    for (const auto& entry : data) { // needs iteration variable for instances array element
+        std::string headname;
+        std::string type;
+        bool enabled = true;
+
+        bool tmp_ratio_enabled = false;
+        std::string tmp_ratio;
+        int tmp_ratio_int;
+
+        headname = entry[0]; // Name
+        if (entry[1]["api"].is_null()) {
+            enabled = false;
+            log("Skipping non-API instance: " + headname);
+            continue;
+        }
+        type = entry[1]["type"];
+        /*
+        int typematch = type.compare("https");
+        if ( ! typematcheadname = entry[0];h == 0 ) {
+            log("Type is not HTTPS, Skipping: " + headname);
+            continue;
+        }
+        */
         log("Head: " + headname);
         // Extracting variables
         bool apiEnabled = entry[1]["api"];
         std::string name;
         if (!entry[1]["monitor"].is_null()) {
-            name = entry[1]["monitor"]["name"];
+            tmp_ratio = entry[1]["monitor"]["90dRatio"]["ratio"];
+            log("Ratio received for: " + headname + " Ratio: " + tmp_ratio);
+            tmp_ratio_int = std::stoi(tmp_ratio);
+            tmp_ratio_enabled = true;
         }
         std::string uri = entry[1]["uri"];
-        std::string type = entry[1]["type"];
         std::string region = entry[1]["region"];
 
         // Printing variables
@@ -219,7 +258,22 @@ void processJson(const json& data) { // Testing
         std::cout << "URI: " << uri << std::endl;
         std::cout << "Type: " << type << std::endl;
         std::cout << "Region: " << region << std::endl;
+        if ( tmp_ratio_enabled ) {
+            std::cout << "Ratio: " << tmp_ratio_int << std::endl;
+        }
         std::cout << std::endl;
+
+        if ( enabled ) { // add entry to instance list
+            inv_instances_vector.push_back(inv_instances);
+            inv_instances_vector.enabled = true;
+            inv_instances_vector.name = name;
+            inv_instances_vector.URL = uri;
+            std::cout << "Loop over vectors:\n";
+            for (unsigned i=0; i<inv_instances_vector.size(); i++) {
+                std::string vector_output_test = inv_instances_vector[i].name;
+                std::cout << vector_output_test;
+            }
+        }
     }
 }
 
@@ -432,32 +486,35 @@ int main ( int argc, char *argv[] ) {
 
     // Test Stuff:
     //std::vector<inv_videos> video;
-    video.push_back(inv_videos()); // Created initial element at index 0.
+    inv_videos_vector.push_back(inv_videos()); // Created initial element at index 0.
 
 
 
-    video[0].URL = "longstring1";
-    video[0].title = "Title Name Here";
-    video.push_back(inv_videos());
-    video[1].URL = "Anotherlongstring1";
-    video[1].title = "Another Title Name Here";
+    inv_videos_vector[0].URL = "longstring1";
+    inv_videos_vector[0].title = "Title Name Here";
+    inv_videos_vector.push_back(inv_videos());
+    inv_videos_vector[1].URL = "Anotherlongstring1";
+    inv_videos_vector[1].title = "Another Title Name Here";
 
-    log("Vector 0: " + video[0].title + " " + video[0].URL);
-    log("Vector 1: " + video[1].title + " " + video[1].URL);
-
-    //std::string url = "https://inv.tux.pizza/api/v1/videos/SpeSpA3e56A?fields=title,videoId";
+    log("Vector 0: " + inv_videos_vector[0].title + " " + inv_videos_vector[0].URL);
+    log("Vector 1: " + inv_videos_vector[1].title + " " + inv_videos_vector[1].URL);
 
     auto result = fetch(URL_instances);
     if ( result.first ) {
         try {
             json data = json::parse(result.second);
-            processJson(data);
+            parse_instances(data);
         } catch (const std::exception& e) {
             std::cout << "Error parsing JSON: " << e.what() << "\n";
         }
     }
 
+    // remove later, 100s of sleep to capture STDout debugging.
     usleep(100000000);
+
+
+
+    // Done with test-stuff...
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
