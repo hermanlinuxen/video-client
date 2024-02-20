@@ -33,6 +33,7 @@ bool debug = false;
 bool log_to_file = true;
 bool collapse_threads = false;
 bool interrupt = false;
+bool local_instances_updated = false;
 int epoch_time;
 
 // Global Constants
@@ -53,6 +54,7 @@ unsigned char char_input_character;
 
 // UI elements
 bool update_ui = true;
+int current_menu = 0;
 
 // colors:
 const std::string color_reset  = "\033[0m";
@@ -90,7 +92,7 @@ struct inv_instances{
     std::string name; // instance name, got from top of array
     std::string URL; // URL
     std::string type; // https or other
-    int last_get = 1; // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
+    int last_get = 0; // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
     int health; // instance health 90d as int
     std::string region; // instance region
 };
@@ -104,6 +106,30 @@ Arguments:
     -v, --verbose, --debug          Show debug logs)"""";
 
     std::cout << usage_text << "\n";
+}
+
+int epoch () {
+    return std::time(0);
+}
+
+std::string to_string_bool ( bool boolean_in ) {
+    std::string bool_str = boolean_in ? "true" : "false";
+    return bool_str;
+}
+
+std::string to_string_int ( int integer_in ) {
+    return std::to_string(integer_in);
+}
+
+std::string to_string_float ( float float_in ) {
+    std::stringstream float_string;
+    float_string << float_in;
+    return float_string.str();
+}
+
+std::string to_string_char ( char char_in[] ) {
+    std::string char_str( char_in );
+    return char_str;
 }
 
 // Append file
@@ -124,19 +150,21 @@ void log_main ( std::string logmsg, int severity = 0, bool file = false ) {
     if ( severity == 0 ) {
         severity_prefix = "DEBUG  ";
     } else if ( severity == 1 ) {
-        severity_prefix = "WARNING";
+        severity_prefix = "INFO   ";
     } else if ( severity == 2 ) {
-        severity_prefix = "ERROR! ";
+        severity_prefix = "WARNING";
     } else if ( severity == 3 ) {
+        severity_prefix = "ERROR! ";
+    } else if ( severity == 4 ) {
         severity_prefix = "FATAL! ";
     }
     std::string fullmsg;
-    if ( file == false ) {
-        if ( severity == 0 ) {
+    if ( ! file ) {
+        if ( severity == 0 || severity == 1 ) {
             fullmsg = "Video-Client - " + color_green + severity_prefix + color_reset + " - " + logmsg + "\n";
-        } else if ( severity == 1 ) {
+        } else if ( severity == 2 ) {
             fullmsg = "Video-Client - " + color_yellow + severity_prefix + color_reset + " - " + logmsg + "\n";
-        } else if ( severity > 1 ) {
+        } else if ( severity > 2 ) {
             fullmsg = "Video-Client - " + color_red + severity_prefix + color_reset + " - " + logmsg + "\n";
         }
         if ( severity == 0 ) {
@@ -150,6 +178,7 @@ void log_main ( std::string logmsg, int severity = 0, bool file = false ) {
     }
 }
 void log ( std::string message, int severity = 0 ) {
+    // Example: log("Message here: " + std::to_string(integer_variable), 1);
     if ( debug == false ){
         if ( severity == 0 ) {
             return;
@@ -185,7 +214,7 @@ std::pair<bool, std::string> fetch (const std::string& url) {
         // Check for errors
         std::string curl_error = curl_easy_strerror(res);
         if (res != CURLE_OK) {
-            log("CURL failed: " + curl_error + ", URL: " + url, 2);
+            log("CURL failed: " + curl_error + ", URL: " + url, 3);
             success = false;
         } else {
             log("CURL successfully requested " + url);
@@ -194,29 +223,16 @@ std::pair<bool, std::string> fetch (const std::string& url) {
         // Clean up
         curl_easy_cleanup(curl);
     } else {
-        log("Request failed! " + url, 2);
+        log("Request failed! " + url, 3);
         success = false;
     }
     return std::make_pair(success, output);
 }
 
-void parse_instances(const json& data) {
-    /*
-        Required values:
-            bool enabled;       // if the program is going to use this instance
-            bool api_enabled;   // if the API is enabled for this instance
-            std::string name;   // instance name, got from top of array
-            std::string URL;    // URL
-            std::string type;   // https or other
-            int last_get = 1;   // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
-            int health;         // instance health 90d as int
-            std::string region; // instance region
-    */
-
-    // clear instances vector
-    inv_instances_vector.clear();
-
-    for (const auto& entry : data) { // needs iteration variable for instances array element
+void parse_instances(const json& data) { // receives instances json output, and refreshes list of local instances.
+    inv_instances_vector.clear(); // clear instances vector
+    int inv_instances_vector_iteration = 0; // Instance vector iteration counter
+    for (const auto& entry : data) {
         std::string headname;
         std::string type;
         bool enabled = true;
@@ -231,48 +247,64 @@ void parse_instances(const json& data) {
             log("Skipping non-API instance: " + headname);
             continue;
         }
-        type = entry[1]["type"];
-        /*
-        int typematch = type.compare("https");
-        if ( ! typematcheadname = entry[0];h == 0 ) {
-            log("Type is not HTTPS, Skipping: " + headname);
-            continue;
-        }
-        */
-        log("Head: " + headname);
+        type = entry[1]["type"]; // Type, "HTTPS"
+
         // Extracting variables
         bool apiEnabled = entry[1]["api"];
-        std::string name;
         if (!entry[1]["monitor"].is_null()) {
-            tmp_ratio = entry[1]["monitor"]["90dRatio"]["ratio"];
-            log("Ratio received for: " + headname + " Ratio: " + tmp_ratio);
+            tmp_ratio = entry[1]["monitor"]["90dRatio"]["ratio"]; // Ratio, uptime last 90 Days as integer.
             tmp_ratio_int = std::stoi(tmp_ratio);
             tmp_ratio_enabled = true;
         }
-        std::string uri = entry[1]["uri"];
-        std::string region = entry[1]["region"];
-
-        // Printing variables
-        std::cout << "API Enabled: " << std::boolalpha << apiEnabled << std::endl;
-        std::cout << "Name: " << name << std::endl;
-        std::cout << "URI: " << uri << std::endl;
-        std::cout << "Type: " << type << std::endl;
-        std::cout << "Region: " << region << std::endl;
-        if ( tmp_ratio_enabled ) {
-            std::cout << "Ratio: " << tmp_ratio_int << std::endl;
-        }
-        std::cout << std::endl;
+        std::string uri = entry[1]["uri"]; // Instance URL 
+        std::string region = entry[1]["region"]; // Instance Region, (US, DE, NO, etc...)
 
         if ( enabled ) { // add entry to instance list
-            inv_instances_vector.push_back(inv_instances);
-            inv_instances_vector.enabled = true;
-            inv_instances_vector.name = name;
-            inv_instances_vector.URL = uri;
-            std::cout << "Loop over vectors:\n";
-            for (unsigned i=0; i<inv_instances_vector.size(); i++) {
-                std::string vector_output_test = inv_instances_vector[i].name;
-                std::cout << vector_output_test;
+            log("Adding instance: " + headname);
+            inv_instances_vector.push_back(inv_instances());
+            inv_instances_vector[inv_instances_vector_iteration].enabled = enabled;
+            inv_instances_vector[inv_instances_vector_iteration].api_enabled = apiEnabled;
+            inv_instances_vector[inv_instances_vector_iteration].name = headname;
+            inv_instances_vector[inv_instances_vector_iteration].URL = uri;
+            inv_instances_vector[inv_instances_vector_iteration].type = type;
+            inv_instances_vector[inv_instances_vector_iteration].region = region;
+            inv_instances_vector[inv_instances_vector_iteration].last_get = epoch();
+            if ( tmp_ratio_enabled ) {
+                inv_instances_vector[inv_instances_vector_iteration].health = tmp_ratio_int;
+            } else {
+                inv_instances_vector[inv_instances_vector_iteration].health = 0;
             }
+
+            ++inv_instances_vector_iteration;
+        }
+    }
+    /*
+    std::cout << "Loop over vectors:\n";
+    for (unsigned i=0; i<inv_instances_vector.size(); i++) {
+        std::string vector_output_test = inv_instances_vector[i].name;
+        std::cout << vector_output_test << "\n";
+    }
+    */
+    if ( inv_instances_vector.size() >= 1 ) {
+        log("Successfully added " + to_string_int(inv_instances_vector.size()) + " Instances.");
+        local_instances_updated = true;
+    } else {
+        log("Unable to update local instance list!", 4);
+    }
+}
+
+// Update local instance list
+void THREAD_update_instances () {
+    auto result = fetch(URL_instances);
+    if ( result.first ) {
+        try {
+            json data = json::parse(result.second);
+            parse_instances(data);
+        } catch (const std::exception& e) {
+            //std::cout << "Error parsing JSON: " << e.what() << "\n";
+            std::stringstream parse_result;
+            parse_result << e.what();
+            log("Error parsing JSON: " + parse_result.str(), 4);
         }
     }
 }
@@ -295,12 +327,13 @@ void THREAD_input_verify_exit () {
             } else if ( input_character == 67 ) {
                 log("Arrow Right");
             } else {
-                log("Unknown key!", 2);
+                log("Unknown key!", 3);
             }
         }
     }
     if ( collapse_threads == true ) {
-        std::cout << "Press any key to exit...\n";
+        usleep(1100); // Ensure this quits after thread.join is ready. If not, next message will print at last printed location.
+        std::cout << "\nPress any key to exit...\n";
     }
 }
 
@@ -439,7 +472,7 @@ void draw_ui ( int w, int h ) {
     int box2_bot_h = h - vertical_border;
 
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 1, "Loooong ass Title here" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 1, "Testing title" );
     draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 2, "Title" );
 }
 
@@ -466,7 +499,8 @@ int main ( int argc, char *argv[] ) {
         if ( argument_char_0_int == 45 ) {
             if ( argument_char_1_int == 45 ) { // Double dash parameter, still WIP
                 log("Double dash parameter");
-                std::cout << "Double Dash!\n";
+                std::cout << "Double Dash argument! Still WIP\n";
+                return 1;
             } else { // Single dash parameter
                 for ( int argument_char_i = 1; argument_char_i < argument_as_string.length() ; ++argument_char_i ) {
                     int argument_char_current = argument_as_string[argument_char_i];
@@ -484,37 +518,9 @@ int main ( int argc, char *argv[] ) {
         log("Success on parsing parameter: " + argument_as_string);
     }
 
-    // Test Stuff:
-    //std::vector<inv_videos> video;
-    inv_videos_vector.push_back(inv_videos()); // Created initial element at index 0.
-
-
-
-    inv_videos_vector[0].URL = "longstring1";
-    inv_videos_vector[0].title = "Title Name Here";
-    inv_videos_vector.push_back(inv_videos());
-    inv_videos_vector[1].URL = "Anotherlongstring1";
-    inv_videos_vector[1].title = "Another Title Name Here";
-
-    log("Vector 0: " + inv_videos_vector[0].title + " " + inv_videos_vector[0].URL);
-    log("Vector 1: " + inv_videos_vector[1].title + " " + inv_videos_vector[1].URL);
-
-    auto result = fetch(URL_instances);
-    if ( result.first ) {
-        try {
-            json data = json::parse(result.second);
-            parse_instances(data);
-        } catch (const std::exception& e) {
-            std::cout << "Error parsing JSON: " << e.what() << "\n";
-        }
-    }
-
-    // remove later, 100s of sleep to capture STDout debugging.
-    usleep(100000000);
-
-
-
-    // Done with test-stuff...
+    // Start process for updating local instances.
+    std::thread instance_update_thread(THREAD_update_instances);
+    instance_update_thread.detach();
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
@@ -555,12 +561,13 @@ int main ( int argc, char *argv[] ) {
     }
 
     fputs("\e[?25h", stdout); // Show cursor again.
+    printf("\033[%d;%dH", h, 0); // move cursor to end of screen.
 
     collapse_threads = true;
 
     if ( interrupt ) {
-        printf("\033[%d;%dH", h, 0);
-        log("Interrupt signal received", 3);
+        //printf("\033[%d;%dH", h, 0);
+        log("Interrupt signal received", 4);
         std::cout << "\nInterrupt!\n";
         return 1;
     }
