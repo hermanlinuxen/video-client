@@ -51,6 +51,7 @@ bool input_character_exit = false;
 bool exit_thread_started = false;
 bool typing_mode = false;
 unsigned char char_input_character;
+std::vector <int> input_list;
 
 // UI elements
 bool update_ui = true;
@@ -301,11 +302,18 @@ void THREAD_update_instances () {
             json data = json::parse(result.second);
             parse_instances(data);
         } catch (const std::exception& e) {
-            //std::cout << "Error parsing JSON: " << e.what() << "\n";
             std::stringstream parse_result;
             parse_result << e.what();
             log("Error parsing JSON: " + parse_result.str(), 4);
         }
+    } else {
+        log("Curl is unable to contact API: " + URL_instances, 4);
+    }
+}
+
+void add_key_input ( int key = 0) {
+    if ( ! key == 0 ) {
+        input_list.push_back(key);
     }
 }
 
@@ -346,6 +354,8 @@ void determine_input ( int input = 0 ) {
     if ( input == 27 ) {
         std::thread input_thread_verify_exit(THREAD_input_verify_exit);
         input_thread_verify_exit.detach();
+    } else {
+        add_key_input(input);
     }
 }
 
@@ -535,8 +545,6 @@ int main ( int argc, char *argv[] ) {
 
     while ( true ) { // Main loop
 
-        epoch_time = std::time(0); // Update epoch time variable
-
         if ( collapse_threads == true ) {
             log("Exiting main function");
             break;
@@ -554,6 +562,16 @@ int main ( int argc, char *argv[] ) {
             draw_ui(w, h);
 
             std::cout << "\e[?25l"; // remove cursor
+        }
+
+
+        // Test:
+        usleep(10000000);
+
+        log("Items in input vector: " + to_string_int(input_list.size()));
+
+        for (unsigned i=0; i<input_list.size(); i++) {
+            log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
         }
 
 
