@@ -123,17 +123,14 @@ std::string to_string_bool ( bool boolean_in ) {
     std::string bool_str = boolean_in ? "true" : "false";
     return bool_str;
 }
-
 std::string to_string_int ( int integer_in ) {
     return std::to_string(integer_in);
 }
-
 std::string to_string_float ( float float_in ) {
     std::stringstream float_string;
     float_string << float_in;
     return float_string.str();
 }
-
 std::string to_string_char ( char char_in[] ) {
     std::string char_str( char_in );
     return char_str;
@@ -323,60 +320,17 @@ void add_key_input ( int key = 0) {
     }
 }
 
-// Exit check thread, multiple keys return 27 including escape and arrow keys.
-void THREAD_input_verify_exit () {
-    usleep(150); // 0.15MS
-    if ( input_character == 27 ) {
-        log("Received exit signal.");
-        collapse_threads = true;
-    } else {
-        if ( input_character == 91 ) {
-            usleep(500); // 0.5MS
-            if ( input_character == 65 ) {
-                log("Arrow Up");
-            } else if ( input_character == 66 ) {
-                log("Arrow Down");
-            } else if ( input_character == 68 ) {
-                log("Arrow Left");
-            } else if ( input_character == 67 ) {
-                log("Arrow Right");
-            } else {
-                log("Unknown key!", 3);
-            }
-        }
-    }
-    if ( collapse_threads == true ) {
-        usleep(1100); // Ensure this quits after thread.join is ready. If not, next message will print at last printed location.
-        std::cout << "\nPress any key to exit...\n";
-    }
-}
-
-//
-void determine_input ( int input = 0 ) {
-    if ( input == 0 ) {
-        return;
-    }
-    log("Determining input for: " + std::to_string(input));
-    if ( input == 27 ) {
-        std::thread input_thread_verify_exit(THREAD_input_verify_exit);
-        input_thread_verify_exit.detach();
-    } else if ( input == 113 ) {
-        quit = true;
-    } else {
-        add_key_input(input);
-    }
-}
-
 // Input thread keeping track of inputs, and adding to queue.
 void THREAD_input () {
+
     log("Started input thread.");
     struct termios old_tattr, new_tattr;
     tcgetattr(STDIN_FILENO,&old_tattr);
     new_tattr=old_tattr;
     new_tattr.c_lflag &=(~ICANON & ~ECHO);
     tcsetattr(STDIN_FILENO,TCSANOW,&new_tattr);
+
     while ( true ) { // Continous loop
-        usleep(100); // 0.1MS
         if ( collapse_threads == true ) {
             break;
         }
@@ -386,9 +340,61 @@ void THREAD_input () {
         } else {
             input_character=getchar();
         }
-        determine_input(input_character);
+        add_key_input(input_character);
     }
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
+}
+
+// input processing
+void calculate_inputs () {
+
+    if ( input_list.size() == 1 ) {
+        if ( input_list[0] == 27 ) {
+            if ( input_character == 27 ) {
+                log("Received exit signal.");
+                collapse_threads = true;
+                return;
+            }
+        } else if ( input_list[0] == 113 ) {
+            quit = true;
+            return;
+        }
+    }
+
+    if ( ! input_list.size() == 0 ) {
+
+        log("Items in input vector: " + to_string_int(input_list.size()));
+
+        for (unsigned i=0; i<input_list.size(); i++) { // Main check loop.
+            if ( input_list.size() == 3 ) { // Check if arrow keys.
+                if ( input_list[i] == 27 ){
+                    i++;
+                    if ( input_list[i] == 91 ){
+                        i++;
+                        if ( input_list[i] == 65 ) {
+                            log("Arrow Up");
+                        } else if ( input_list[i] == 66 ) {
+                            log("Arrow Down");
+                        } else if ( input_list[i] == 67 ) {
+                            log("Arrow Right");
+                        } else if ( input_list[i] == 68 ) {
+                            log("Arrow Left");
+                        } else {
+                            log("Unknown combination key!", 3);
+                        }
+                    } else {
+                        log("Unknown combination key!", 3);
+                    }
+                    input_list.clear();
+                    continue;
+                }
+            }
+            log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
+        }
+        input_list.clear();
+    } else {
+        return;
+    }
 }
 
 void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str ) {
@@ -562,6 +568,8 @@ int main ( int argc, char *argv[] ) {
             break;
         }
 
+        calculate_inputs();
+
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
         w = size.ws_col; h = size.ws_row;
         if ( tmp_w != w || tmp_h != h || update_ui == true ) {
@@ -575,17 +583,6 @@ int main ( int argc, char *argv[] ) {
 
             std::cout << "\e[?25l"; // remove cursor
         }
-
-
-        // Test:
-        usleep(10000000);
-
-        log("Items in input vector: " + to_string_int(input_list.size()));
-
-        for (unsigned i=0; i<input_list.size(); i++) {
-            log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
-        }
-
 
         usleep(1000);
     }
