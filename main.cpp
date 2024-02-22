@@ -55,6 +55,12 @@ std::vector <int> input_list;
 
 // UI elements
 bool update_ui = true;
+bool quit = false;
+
+/*
+    Menu items:
+    0 - Main Menu
+*/
 int current_menu = 0;
 
 // colors:
@@ -354,6 +360,8 @@ void determine_input ( int input = 0 ) {
     if ( input == 27 ) {
         std::thread input_thread_verify_exit(THREAD_input_verify_exit);
         input_thread_verify_exit.detach();
+    } else if ( input == 113 ) {
+        quit = true;
     } else {
         add_key_input(input);
     }
@@ -545,8 +553,12 @@ int main ( int argc, char *argv[] ) {
 
     while ( true ) { // Main loop
 
+        if ( current_menu == 0 && quit ) {
+            collapse_threads = true;
+        }
+
         if ( collapse_threads == true ) {
-            log("Exiting main function");
+            log("Exiting main function", 1);
             break;
         }
 
@@ -591,6 +603,8 @@ int main ( int argc, char *argv[] ) {
     }
 
     input_thread.join();
+
+    std::cout << "\nExiting...\n";
 
     return 0;
 }
