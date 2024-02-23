@@ -57,6 +57,9 @@ std::vector <int> input_list;
 bool update_ui = true;
 bool quit = false;
 
+//test variable:
+int browse_height = 10;
+
 /*
     Menu items:
     0 - Main Menu
@@ -365,6 +368,8 @@ void calculate_inputs () {
 
         log("Items in input vector: " + to_string_int(input_list.size()));
 
+        update_ui = true;
+
         for (unsigned i=0; i<input_list.size(); i++) { // Main check loop.
             if ( input_list.size() == 3 ) { // Check if arrow keys.
                 if ( input_list[i] == 27 ){
@@ -373,8 +378,10 @@ void calculate_inputs () {
                         i++;
                         if ( input_list[i] == 65 ) {
                             log("Arrow Up");
+                            if ( current_menu == 1 ) { browse_height--; }
                         } else if ( input_list[i] == 66 ) {
                             log("Arrow Down");
+                            if ( current_menu == 1 ) { browse_height++; }
                         } else if ( input_list[i] == 67 ) {
                             log("Arrow Right");
                         } else if ( input_list[i] == 68 ) {
@@ -390,6 +397,10 @@ void calculate_inputs () {
                 }
             }
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
+            if ( input_list[i] == 49 ) { current_menu = 0; } // Key 1 pressed / main menu
+            else if ( input_list[i] == 50 ) { current_menu = 1; } // Key 2 pressed / main menu
+
+            else { log("Key unknown" + to_string_int(input_list[1])); }
         }
         input_list.clear();
     } else {
@@ -418,11 +429,13 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
             if ( x == top_h && y == top_w ) {
                 // top left corner
                 if ( type == 2 ) { character = "┬"; }
+                else if ( type == 4 ) { character = "├"; }
                 else { character = "╭"; }
 
             } else if ( x == top_h && y == bot_w ) {
                 // top right corner
                 if ( type == 1 ) { skip = true; }
+                else if ( type == 4 ) { character = "┤"; }
                 else { character = "╮"; }
 
             } else if ( x == top_h ) {
@@ -434,12 +447,12 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
                 if ( type == 2 ) { character = "┴"; }
-                else if ( jkladskljadskjl ) {  }
+                else if ( type == 3 ) { skip = true; }
                 else { character = "╰"; }
 
             } else if ( x == bot_h && y == bot_w ) {
                 // bot right corner
-                if ( type == 1 ) { skip = true; }
+                if ( type == 1 || type == 3 ) { skip = true; }
                 else { character = "╯"; }
 
             } else if ( x == bot_h ) {
@@ -504,37 +517,37 @@ void menu_item_main ( int w, int h ) {
 }
 
 void menu_item_browse ( int w, int h ) {
+    // Boxes: 2, top short fixed, bottom video list.
     
-}
-
-void draw_ui ( int w, int h ) {
-    //std::cout << "Width: " << w << " Height: " << h << "\n";
-
-    /*
     int vertical_border = 0;
     int horizontal_border = 0;
 
-    int box1_top_w = horizontal_border + 1;
-    int box1_bot_w = w / 2 - horizontal_border;
-    int box1_top_h = vertical_border + 1;
-    int box1_bot_h = h - vertical_border;
+    int fixed_height = browse_height;
 
-    int box2_top_w = w / 2 + horizontal_border;
+    int box1_top_w = horizontal_border + 1;
+    int box1_bot_w = w - horizontal_border;
+    int box1_top_h = vertical_border + 1;
+    int box1_bot_h = h - vertical_border + fixed_height;
+
+    int box2_top_w = horizontal_border + 1;
     int box2_bot_w = w - horizontal_border;
-    int box2_top_h = vertical_border + 1;
+    int box2_top_h = vertical_border + fixed_height + 1;
     int box2_bot_h = h - vertical_border;
 
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse!" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "Videos:" );
+}
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 1, "Testing title" );
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 2, "Title" );
-    */
+void draw_ui ( int w, int h ) {
 
     if ( current_menu == 0 ) { // 2 boxes on top of each other
         log("UI: Main menu!");
         menu_item_main(w, h);
     } else if ( current_menu == 1 ) {
-        log("UI: Not sure");
+        log("UI: Browse");
+        menu_item_browse(w, h);
     }
+
 }
 
 void capture_interrupt (int signum) {
@@ -621,7 +634,7 @@ int main ( int argc, char *argv[] ) {
             std::cout << "\e[?25l"; // remove cursor
         }
 
-        usleep(1000);
+        usleep(500);
     }
 
     fputs("\e[?25h", stdout); // Show cursor again.
