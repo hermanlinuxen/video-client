@@ -434,6 +434,7 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
                 if ( type == 2 ) { character = "┴"; }
+                else if ( jkladskljadskjl ) {  }
                 else { character = "╰"; }
 
             } else if ( x == bot_h && y == bot_w ) {
@@ -480,8 +481,36 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
     }
 }
 
+void menu_item_main ( int w, int h ) {
+    // Boxes: 2, top short fixed, bottom more info.
+    
+    int vertical_border = 0;
+    int horizontal_border = 0;
+    
+    int fixed_height = 10;
+
+    int box1_top_w = horizontal_border + 1;
+    int box1_bot_w = w - horizontal_border;
+    int box1_top_h = vertical_border + 1;
+    int box1_bot_h = h - vertical_border + fixed_height;
+
+    int box2_top_w = horizontal_border + 1;
+    int box2_bot_w = w - horizontal_border;
+    int box2_top_h = vertical_border + fixed_height + 1;
+    int box2_bot_h = h - vertical_border;
+
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Main Menu" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "Other stuff" );
+}
+
+void menu_item_browse ( int w, int h ) {
+    
+}
+
 void draw_ui ( int w, int h ) {
     //std::cout << "Width: " << w << " Height: " << h << "\n";
+
+    /*
     int vertical_border = 0;
     int horizontal_border = 0;
 
@@ -498,6 +527,14 @@ void draw_ui ( int w, int h ) {
 
     draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 1, "Testing title" );
     draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 2, "Title" );
+    */
+
+    if ( current_menu == 0 ) { // 2 boxes on top of each other
+        log("UI: Main menu!");
+        menu_item_main(w, h);
+    } else if ( current_menu == 1 ) {
+        log("UI: Not sure");
+    }
 }
 
 void capture_interrupt (int signum) {
