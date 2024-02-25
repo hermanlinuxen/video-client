@@ -11,6 +11,7 @@ Resources
 #include <iostream>
 #include <sys/ioctl.h>
 #include <stdio.h>
+#include <string>
 #include <unistd.h>
 #include <termios.h>
 #include <thread>
@@ -18,12 +19,16 @@ Resources
 #include <signal.h>
 #include <ctime>
 #include <bits/stdc++.h>
+#include <filesystem>
 
 // Curl
 #include <curl/curl.h>
 
 // Json
 #include "include/nlohmann/json.hpp"
+
+// Version
+const std::string version_number = "0.0.1";
 
 // Namespaces
 using json = nlohmann::json;
@@ -41,6 +46,11 @@ const std::string homedir = getenv("HOME");
 const std::string userconfigdir = homedir + "/.config";
 const std::string configdir = userconfigdir + "/video-client";
 const std::string logfile = configdir + "/video-client.log";
+const std::string config_file_subscriptions = configdir + "/subscriptions.conf";
+const std::string config_file_downloads = configdir + "/downloads.conf";
+const std::string config_file_favorites = configdir + "/favorites.conf";
+const std::string config_file_banned_instances = configdir + "/banned-instances.conf";
+const std::string config_file_banned_channels = configdir + "/banned-channels.conf";
 
 // URL Variables
 const std::string URL_instances = "https://api.invidious.io/instances.json?&sort_by=type,users";
@@ -57,17 +67,39 @@ std::vector <int> input_list;
 bool update_ui = true;
 bool quit = false;
 
-//test variable:
-int browse_height = 10;
-
 /*
     Menu items:
     0 - Main Menu
+    1 - Browse / Contentview
+    2 - Search
+    3 - Status Page
+    4 - Settings / Options
 */
 int current_menu = 0;
+const std::string menu_items[5] = {"Main Menu", "Browse", "Search", "Status", "Settings"};
+
+/*
+    Browse Types:
+    0 - Popular
+    1 - Subscriptions
+    2 - Downloaded
+    3 - Favorite
+    4 - Channel (not scrollable, only accessible by manually selecting channel)
+*/
+int current_browse_type = 0;
+const std::string browse_types[5] = {"Popular", "Subscriptions", "Downloaded", "Favorite", "Channel"};
+
+const std::string logo[5] = {
+    "__     ___     _               ____ _ _            _",
+    "\\ \\   / (_) __| | ___  ___    / ___| (_) ___ _ __ | |_",
+    " \\ \\ / /| |/ _` |/ _ \\/ _ \\  | |   | | |/ _ \\ '_ \\| __|",
+    "  \\ V / | | (_| |  __/ (_) | | |___| | |  __/ | | | |_",
+    "   \\_/  |_|\\__,_|\\___|\\___/   \\____|_|_|\\___|_| |_|\\__|"
+};
 
 // colors:
 const std::string color_reset  = "\033[0m";
+const std::string color_bold   = "\033[1m";
 const std::string color_red    = "\033[31m";
 const std::string color_green  = "\033[32m";
 const std::string color_yellow = "\033[33m";
@@ -82,31 +114,45 @@ bool arg_verbose = false;
 bool arg_help    = false;
 
 // Videos vector for storing video details.
-struct inv_videos{ // invidious videos
-    std::string URL;
-    bool used = false;
-    int published;
-    int lengthseconds;
-    int viewCount;
-    std::string title;
-    std::string publishedtext;
-    std::string author;
-    std::string author_id;
-    std::string description;
+struct inv_videos{              // invidious videos
+    std::string URL;            // 11 character video identifier
+    int published;              // epoch time of release date
+    int lengthseconds;          // video Length in seconds
+    int viewCount;              // video views
+    int downloaded_time = 0;    // epoch time when video was downloaded
+    bool downloaded = false;    // if video is downloaded or not
+    bool favorite = false;      // if video is favorite
+    std::string title;          // video title
+    std::string publishedtext;  // release date converted to human readable format?
+    std::string author;         // video creator
+    std::string author_id;      // ID of video creator
+    std::string description;    // video description.
 };
 std::vector<inv_videos> inv_videos_vector;
 
 struct inv_instances{
-    bool enabled; // if the program is going to use this instance
-    bool api_enabled; // if the API is enabled for this instance
-    std::string name; // instance name, got from top of array
-    std::string URL; // URL
-    std::string type; // https or other
-    int last_get = 0; // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
-    int health; // instance health 90d as int
-    std::string region; // instance region
+    bool enabled;               // if the program is going to use this instance
+    bool api_enabled;           // if the API is enabled for this instance
+    std::string name;           // instance name, got from top of array
+    std::string URL;            // URL
+    std::string type;           // https or other
+    int last_get = 0;           // ignored and 0 if enabled, if unreachable, retry after 10 minutes. Apply current epoch to this int.
+    int health;                 // instance health 90d as int
+    std::string region;         // instance region
 };
 std::vector<inv_instances> inv_instances_vector;
+
+std::vector<std::string> vec_browse_popular;            // VideoID's of popular list.
+std::vector<std::string> vec_browse_subscriptions;      // VideoID's of subscribed list.
+std::vector<std::string> vec_browse_downloaded;         // VideoID's of downloads list.
+std::vector<std::string> vec_browse_favorites;          // VideoID's of favorites list.
+
+std::vector<std::string> vec_global_banned_instances;   // All banned instances
+std::vector<std::string> vec_global_banned_channels;    // All bannen channels
+
+std::vector<std::string> vec_subscribed_channels;       // Locally sourced list of subscribed channel ID's
+std::vector<std::string> vec_downloaded_videos;         // Locally sourced list of downloaded video ID's
+std::vector<std::string> vec_favorited_videos;          // Locally sourced list of favorited video ID's
 
 void usage () {
     const char *usage_text = R""""(usage: video-client
@@ -120,6 +166,35 @@ Arguments:
 
 int epoch () {
     return std::time(0);
+}
+
+bool create_folder ( const std::string& folderPath ) {
+    if ( ! std::filesystem::exists(folderPath) ) {
+        try {
+            std::filesystem::create_directories(folderPath);
+            return true;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to create folder: " << folderPath << " - " << e.what() << std::endl;
+            return false;
+        }
+    } else {
+        return true;
+    }
+}
+
+bool create_file ( const std::string& filePath ) {
+    std::ifstream file(filePath);
+    if ( ! file.good() ) {
+        std::ofstream newFile(filePath);
+        if ( newFile.good() ) {
+            return true;
+        } else {
+            std::cerr << "Failed to create file: " << filePath << std::endl;
+            return false;
+        }
+    } else {
+        return true;
+    }
 }
 
 std::string to_string_bool ( bool boolean_in ) {
@@ -139,15 +214,58 @@ std::string to_string_char ( char char_in[] ) {
     return char_str;
 }
 
-// Append file
-void append_file (std::string file, std::string content) {
-    std::fstream f;
-    f.open(file, std::ios::app);
-    if (!f)
-        std::cout << "File does not exist: " << file << "\n";
-    else {
-        f << content;
-        f.close();
+// check if file contains string
+bool find_string_in_file ( const std::string& filename, const std::string& content ) {
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line == content) {
+            return true; // String found in the file
+        }
+    }
+    return false; // String not found in the file
+}
+// append string to file
+int append_file ( const std::string& filename, const std::string& content, bool newline = false ) { // 0 = added, 1 = allready in file, 2 fail.
+    if ( find_string_in_file(filename, content) ) {
+        return 1;
+    }
+
+    std::ofstream file;
+    file.open(filename, std::ios::app);
+    if (file.is_open()) {
+        if ( newline ) {
+            file << content << "\n";
+        } else {
+            file << content;
+        }
+        file.close();
+        return 0;
+    } else {
+        return 2;
+    }
+}
+// remove line from file
+void remove_matching_lines ( const std::string& filename, const std::string& pattern ) {
+    std::ifstream inFile(filename);
+    std::vector<std::string> lines;
+    std::string line;
+
+    while (std::getline(inFile, line)) {
+        lines.push_back(line);
+    }
+    inFile.close();
+
+    auto i = lines.begin();
+    while (i != lines.end()) {
+        if (i->find(pattern) != std::string::npos) {
+            i = lines.erase(i);
+        } else { ++i; }
+    }
+
+    std::ofstream outFile(filename);
+    for (const std::string& updatedLine : lines) {
+        outFile << updatedLine << '\n';
     }
 }
 
@@ -285,15 +403,8 @@ void parse_instances(const json& data) { // receives instances json output, and 
             ++inv_instances_vector_iteration;
         }
     }
-    /*
-    std::cout << "Loop over vectors:\n";
-    for (unsigned i=0; i<inv_instances_vector.size(); i++) {
-        std::string vector_output_test = inv_instances_vector[i].name;
-        std::cout << vector_output_test << "\n";
-    }
-    */
     if ( inv_instances_vector.size() >= 1 ) {
-        log("Successfully added " + to_string_int(inv_instances_vector.size()) + " Instances.");
+        log("Successfully added " + to_string_int(inv_instances_vector.size()) + " Instances.", 1);
         local_instances_updated = true;
     } else {
         log("Unable to update local instance list!", 4);
@@ -301,7 +412,7 @@ void parse_instances(const json& data) { // receives instances json output, and 
 }
 
 // Update local instance list
-void THREAD_update_instances () {
+void update_instances () {
     auto result = fetch(URL_instances);
     if ( result.first ) {
         try {
@@ -348,6 +459,32 @@ void THREAD_input () {
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
 
+// Background worker and update thread.
+void THREAD_background_worker () {
+
+    int last_update_instances;
+
+    update_instances(); // Update local instances.
+    last_update_instances = epoch();
+    log("WRK_THR: Instances updated.");
+
+    while ( true ) {
+        if ( ! inv_instances_vector.size() <= 1 ) {
+            // instances loaded
+            if ( epoch() >= last_update_instances + 300 ) {
+                log("Instances not updated in 5 minutes, updating now...", 1);
+                update_instances();
+                last_update_instances = epoch();
+            }
+        } else { // Attempt again after 10 seconds.
+            log("WRK_THR: Unable to update local instances.", 4);
+            usleep(10000000); // 10s
+            update_instances();
+        }
+        usleep(500000); // 0.5s sleep
+    }
+}
+
 // input processing
 void calculate_inputs () {
 
@@ -358,9 +495,6 @@ void calculate_inputs () {
                 collapse_threads = true;
                 return;
             }
-        } else if ( input_list[0] == 113 ) {
-            quit = true;
-            return;
         }
     }
 
@@ -378,14 +512,24 @@ void calculate_inputs () {
                         i++;
                         if ( input_list[i] == 65 ) {
                             log("Arrow Up");
-                            if ( current_menu == 1 ) { browse_height--; }
                         } else if ( input_list[i] == 66 ) {
                             log("Arrow Down");
-                            if ( current_menu == 1 ) { browse_height++; }
                         } else if ( input_list[i] == 67 ) {
                             log("Arrow Right");
+                            if ( current_menu == 1 ) {
+                                if ( current_browse_type < 3 ) {
+                                    ++current_browse_type;
+                                    update_ui = true;
+                                }
+                            }
                         } else if ( input_list[i] == 68 ) {
                             log("Arrow Left");
+                            if ( current_menu == 1 ) {
+                                if ( ! current_browse_type < 1 ) {
+                                    --current_browse_type;
+                                    update_ui = true;
+                                }
+                            }
                         } else {
                             log("Unknown combination key!", 3);
                         }
@@ -399,8 +543,9 @@ void calculate_inputs () {
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
             if ( input_list[i] == 49 ) { current_menu = 0; } // Key 1 pressed / main menu
             else if ( input_list[i] == 50 ) { current_menu = 1; } // Key 2 pressed / main menu
+            else if ( input_list[0] == 113 ) { quit = true; }
 
-            else { log("Key unknown" + to_string_int(input_list[1])); }
+            else { log("Key unknown: " + to_string_int(input_list[0])); }
         }
         input_list.clear();
     } else {
@@ -408,7 +553,7 @@ void calculate_inputs () {
     }
 }
 
-void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str ) {
+void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str = "null" ) {
     /*
     Drawbox types: Why do i do this to myself.
         0) Default, no special corners / walls.
@@ -420,6 +565,7 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         6) Top Right.
         7) Bottom Left.
         8) Bottom Right.
+        9) Middle Box.
     */
     std::string character;
     int x; int y;
@@ -429,35 +575,33 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
             if ( x == top_h && y == top_w ) {
                 // top left corner
                 if ( type == 2 ) { character = "┬"; }
-                else if ( type == 4 ) { character = "├"; }
+                else if ( type == 4 || type == 9 ) { character = "├"; }
                 else { character = "╭"; }
 
             } else if ( x == top_h && y == bot_w ) {
                 // top right corner
                 if ( type == 1 ) { skip = true; }
-                else if ( type == 4 ) { character = "┤"; }
+                else if ( type == 4 || type == 9 ) { character = "┤"; }
                 else { character = "╮"; }
 
             } else if ( x == top_h ) {
                 // top bar
-                //if (  ) { skip = true; }
-                //else { character = "─"; }
                 character = "─";
 
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
                 if ( type == 2 ) { character = "┴"; }
-                else if ( type == 3 ) { skip = true; }
+                else if ( type == 3 || type == 9 ) { skip = true; }
                 else { character = "╰"; }
 
             } else if ( x == bot_h && y == bot_w ) {
                 // bot right corner
-                if ( type == 1 || type == 3 ) { skip = true; }
+                if ( type == 1 || type == 3 || type == 9 ) { skip = true; }
                 else { character = "╯"; }
 
             } else if ( x == bot_h ) {
                 // bot bar
-                if ( type == 3 || type == 5 || type == 6 ) { skip = true; }
+                if ( type == 3 || type == 5 || type == 6 || type == 9 ) { skip = true; }
                 else { character = "─"; }
 
             } else if ( y == top_w ) {
@@ -490,30 +634,81 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         subtract = subtract + 1;
         m = m - subtract;
         printf("\033[%d;%dH", top_h, m);
-        std::cout << frame_color << "┨ " << frame_title_color << title_str << frame_color << " ┠" << color_reset;
+        std::cout << frame_color << "┨ " << frame_title_color << color_bold << title_str << frame_color << " ┠" << color_reset;
     }
 }
 
 void menu_item_main ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom more info.
-    
+
+    bool large_canvas;
+    if ( w < 120 || h < 40 ) {
+        large_canvas = false;
+    } else {
+        large_canvas = true;
+    }
+
     int vertical_border = 0;
     int horizontal_border = 0;
-    
-    int fixed_height = 10;
+
+    int fixed_height = 7;
 
     int box1_top_w = horizontal_border + 1;
     int box1_bot_w = w - horizontal_border;
     int box1_top_h = vertical_border + 1;
-    int box1_bot_h = h - vertical_border + fixed_height;
-
-    int box2_top_w = horizontal_border + 1;
-    int box2_bot_w = w - horizontal_border;
-    int box2_top_h = vertical_border + fixed_height + 1;
-    int box2_bot_h = h - vertical_border;
+    int box1_bot_h = 1 - vertical_border + fixed_height;
 
     draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Main Menu" );
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "Other stuff" );
+
+    if ( large_canvas ) { // 3 boxes, header main info and footer for small status details.
+        int info_footer_height = 15;
+
+        int large_box2_top_w = horizontal_border + 1;
+        int large_box2_bot_w = w - horizontal_border;
+        int large_box2_top_h = vertical_border + fixed_height + 1;
+        int large_box2_bot_h = h - vertical_border - info_footer_height;
+
+        draw_box( large_box2_top_w, large_box2_top_h, large_box2_bot_w, large_box2_bot_h, false, 9 );
+        draw_box( large_box2_top_w, large_box2_bot_h, w - horizontal_border, h - vertical_border, false, 4 );
+    } else { // 2 Boxes, top header and infobox under:
+        int small_box2_top_w = horizontal_border + 1;
+        int small_box2_bot_w = w - horizontal_border;
+        int small_box2_top_h = vertical_border + fixed_height + 1;
+        int small_box2_bot_h = h - vertical_border;
+
+        draw_box( small_box2_top_w, small_box2_top_h, small_box2_bot_w, small_box2_bot_h, false, 4 );
+    }
+    
+    //Version number
+    if ( debug && large_canvas ) {
+        printf("\033[%d;%dH", 2, 3);
+        std::cout << "v" << version_number;
+    }
+
+    // Draw main menu logo
+    int main_menu_logo_starting_pos = w / 2 - 27;
+    std::stringstream main_menu_logo_title_stream;
+    main_menu_logo_title_stream << color_blue << color_bold; // Set text type for logo
+    std::string main_menu_logo_title_color = main_menu_logo_title_stream.str();
+    int logo_array_size = sizeof(logo) / sizeof(logo[0]);
+
+    for ( int l = 0; l < logo_array_size; ++l ) {
+        printf("\033[%d;%dH", l + 2, main_menu_logo_starting_pos);
+        std::cout << main_menu_logo_title_color << logo[l] << color_reset;
+    }
+
+    // Draw menu list
+    int menu_list_info_height = fixed_height + 3;
+    int menu_list_number_width = 5;
+    int menu_list_title_width = 8;
+    int menu_list_array_size = sizeof(menu_items) / sizeof(menu_items[0]);
+
+    for ( int i = 0; i < menu_list_array_size; ++i ) {
+        printf("\033[%d;%dH", menu_list_info_height + i, menu_list_number_width);
+        std::cout << color_red << color_bold << i + 1 << color_reset << ",";
+        printf("\033[%d;%dH", menu_list_info_height + i, menu_list_title_width);
+        std::cout << color_green << menu_items[i] << color_reset; if ( i == 0 ) { std::cout << " (Current)"; }
+    }
 }
 
 void menu_item_browse ( int w, int h ) {
@@ -522,7 +717,7 @@ void menu_item_browse ( int w, int h ) {
     int vertical_border = 0;
     int horizontal_border = 0;
 
-    int fixed_height = browse_height;
+    int fixed_height = 7;
 
     int box1_top_w = horizontal_border + 1;
     int box1_bot_w = w - horizontal_border;
@@ -534,17 +729,16 @@ void menu_item_browse ( int w, int h ) {
     int box2_top_h = vertical_border + fixed_height + 1;
     int box2_bot_h = h - vertical_border;
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse!" );
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "Videos:" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse" );
+
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "< " + browse_types[current_browse_type] + " >" );
 }
 
 void draw_ui ( int w, int h ) {
 
     if ( current_menu == 0 ) { // 2 boxes on top of each other
-        log("UI: Main menu!");
         menu_item_main(w, h);
     } else if ( current_menu == 1 ) {
-        log("UI: Browse");
         menu_item_browse(w, h);
     }
 
@@ -592,9 +786,34 @@ int main ( int argc, char *argv[] ) {
         log("Success on parsing parameter: " + argument_as_string);
     }
 
+    // Pre-Flight checks.
+    if ( ! create_folder(userconfigdir) ) { std::cout << "Unable to create config directory: " << userconfigdir << "\n"; return 1; }
+    if ( ! create_folder(configdir) ) { std::cout << "Unable to create config directory: " << configdir << "\n"; return 1; }
+    if ( ! create_file(logfile) ) { std::cout << "Unable to create log file: " << logfile << "\n"; return 1; }
+    if ( ! create_file(config_file_subscriptions) ) { std::cout << "Unable to create config file: " << config_file_subscriptions << "\n"; return 1; }
+    if ( ! create_file(config_file_downloads) ) { std::cout << "Unable to create config file: " << config_file_downloads << "\n"; return 1; }
+    if ( ! create_file(config_file_favorites) ) { std::cout << "Unable to create config file: " << config_file_favorites << "\n"; return 1; }
+    if ( ! create_file(config_file_banned_instances) ) { std::cout << "Unable to create config file: " << config_file_banned_instances << "\n"; return 1; }
+    if ( ! create_file(config_file_banned_channels) ) { std::cout << "Unable to create config file: " << config_file_banned_channels << "\n"; return 1; }
+
+
+    /* Test Stuff
+    append_file(config_file_favorites, "abc123xYz91", true);
+    append_file(config_file_favorites, "uh5gd53uzaj", true);
+    append_file(config_file_favorites, "hlggbvjbhgs", true);
+    append_file(config_file_favorites, "5gj2l5o8g42", true);
+    std::cout << "added 4 items, sleeping\n";
+    usleep(20000000);
+    std::cout << "Done sleeping, removing hlggbvjbhgs\n";
+    remove_matching_lines(config_file_favorites, "hlggbvjbhgs");
+    std::cout << "Removed line\n";
+
+    return 0;
+    */
+
     // Start process for updating local instances.
-    std::thread instance_update_thread(THREAD_update_instances);
-    instance_update_thread.detach();
+    std::thread background_thread(THREAD_background_worker);
+    background_thread.detach();
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
@@ -609,11 +828,15 @@ int main ( int argc, char *argv[] ) {
 
     while ( true ) { // Main loop
 
-        if ( current_menu == 0 && quit ) {
-            collapse_threads = true;
+        if ( quit ) { // UI quit actions
+            if ( current_menu == 0 ) { collapse_threads = true; }
+            else if ( current_menu == 1 ) { current_menu = 0; }
+
+            quit = false;
+            update_ui = true;
         }
 
-        if ( collapse_threads == true ) {
+        if ( collapse_threads == true ) { // Stop processes and quit program
             log("Exiting main function", 1);
             break;
         }
@@ -622,6 +845,25 @@ int main ( int argc, char *argv[] ) {
 
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
         w = size.ws_col; h = size.ws_row;
+        if ( w < 60 || h < 20 ) { 
+            std::cout << "\033c";
+            std::cout << "Terminal too small!\nCurrent: Width: " << w << " Heigth: " << h << "\n\nMore Needed: ";
+
+            if ( w < 60 && h < 20 ) {
+                std::cout << "Width: " << 60 - w << " Height: " << 20 - h;
+            } else if ( w < 60 ) {
+                std::cout << "Width: " << 60 - w;
+            } else if ( h < 20 ) {
+                std::cout << "Height: " << 20 - h;
+            }
+            std::cout << "\n\nTotal Needed: Width 60 Height 20";
+
+            tmp_w = w;
+            tmp_h = h;
+            usleep(10000);
+            continue;
+        }
+
         if ( tmp_w != w || tmp_h != h || update_ui == true ) {
             std::cout << "\033c"; // Clear screen. Also reset.
             tmp_w = w;
@@ -639,6 +881,7 @@ int main ( int argc, char *argv[] ) {
 
     fputs("\e[?25h", stdout); // Show cursor again.
     printf("\033[%d;%dH", h, 0); // move cursor to end of screen.
+    std::cout << "\nPress any key to quit...";
 
     collapse_threads = true;
 
