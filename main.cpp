@@ -142,10 +142,11 @@ struct inv_instances{
 };
 std::vector<inv_instances> inv_instances_vector;
 
-std::vector<std::string> vec_browse_popular;            // VideoID's of popular list.
-std::vector<std::string> vec_browse_subscriptions;      // VideoID's of subscribed list.
-std::vector<std::string> vec_browse_downloaded;         // VideoID's of downloads list.
-std::vector<std::string> vec_browse_favorites;          // VideoID's of favorites list.
+std::vector<std::string> vec_browse_popular;            // VideoID's of popular list sorted.
+std::vector<std::string> vec_browse_popular_tmp;        // VideoID's of popular list sorted.
+std::vector<std::string> vec_browse_subscriptions;      // VideoID's of subscribed list sorted.
+std::vector<std::string> vec_browse_downloaded;         // VideoID's of downloads list sorted.
+std::vector<std::string> vec_browse_favorites;          // VideoID's of favorites list sorted.
 
 std::vector<std::string> vec_global_banned_instances;   // All banned instances
 std::vector<std::string> vec_global_banned_channels;    // All bannen channels
@@ -426,6 +427,30 @@ void update_instances () {
     } else {
         log("Curl is unable to contact API: " + URL_instances, 4);
     }
+}
+
+// Random instance
+int random_instance () {
+    if ( ! inv_instances_vector.size() <= 1 ) {
+        while ( true ) {
+            int random = rand() % inv_instances_vector.size();
+            log("Random Number: " + to_string_float(random));
+            if ( inv_instances_vector[random].enabled ) {
+                std::string instance = inv_instances_vector[random].name;
+                log("Random instance name: " + instance);
+                return random;
+            }
+        }
+    }
+}
+
+// Update popular list
+void update_browse_popular () {
+
+    //std::string url = "https://" + inv_instances_vector[random_instance()].name + "rest-of-api";
+    log("update popular: " + to_string_int(random_instance()));
+
+    //auto result = fetch();
 }
 
 void add_key_input ( int key = 0) {
@@ -810,6 +835,9 @@ int main ( int argc, char *argv[] ) {
 
     return 0;
     */
+
+    usleep(5000000);
+    random_instance();
 
     // Start process for updating local instances.
     std::thread background_thread(THREAD_background_worker);
