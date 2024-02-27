@@ -532,16 +532,65 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
         // Add to temporary vector
         vec_browse_popular_temp.push_back(videoid);
     }
-    // Todo: add videoIDs to popular vector in sorted order.
-    // Add all to temporary vector in for loop, after loop,
-    // copy entire public list to the temporary list without duplicates,
-    // and add them to the public again, but sorted by release date gotten from inv_videos_vector
-    //
-    log("Temporary popular vector items: " + to_string_int(vec_browse_popular_temp.size()));
-    // merge and sort
-    for ( int i = 0; i < vec_browse_popular.size(); ++i ) {
-        vec_browse_popular_temp.push_back(vec_browse_popular[i]);
-        log("Added instance: " + vec_browse_popular[i]);
+
+    // merge to temp
+    bool merge_skip;
+    int popular_iterator_count = vec_browse_popular.size();
+    for ( int i = 0; i < popular_iterator_count; ++i ) {
+        merge_skip = false;
+        for ( int used_in_pop_i = 0; used_in_pop_i < vec_browse_popular_temp.size(); ++used_in_pop_i ) {
+            if ( vec_browse_popular_temp[used_in_pop_i] == vec_browse_popular[i] ) {
+                merge_skip = true;
+                break; // Video allready in temp, duplicate
+            }
+        }
+        if ( ! merge_skip ) {
+            vec_browse_popular_temp.push_back(vec_browse_popular[i]);
+        }
+    }
+
+    // get_videoid_from_vector(videoid);
+
+    std::vector<std::string> vec_browse_popular_sorted; // init temporary sorted vector, sorted largest numbers first
+
+    // vec_browse_popular_temp contains all videoIDs needed to sort.
+    int sort_count = vec_browse_popular_temp.size();
+
+    int largest = 0;
+    int epoch;
+    int id;
+    bool skip;
+
+    for ( int sort_i = 0; sort_i < sort_count; ++sort_i ) {
+        // Add largest epoch found to first available element in vec_browse_popular_sorted, and remove it from temp vector.
+        largest = 0;
+
+        for ( int current_i = 0; current_i < vec_browse_popular_temp.size(); ++current_i ) {
+            skip = false;
+            for ( int used_i = 0; used_i < vec_browse_popular_sorted.size(); ++used_i ) { // check if current has been used.
+                if ( vec_browse_popular_sorted[used_i] == vec_browse_popular_temp[current_i] ) {
+                    skip = true;
+                }
+            }
+            if ( skip ) {
+                continue;
+            }
+            auto id_result = get_videoid_from_vector(vec_browse_popular_temp[current_i]);
+            if ( ! id_result.first ) {
+                log("VideoID missing from main list" + vec_browse_popular_temp[current_i], 4);
+                continue;
+            }
+            epoch = inv_videos_vector[id_result.second].published;
+            if ( epoch > largest ) {
+                largest = current_i;
+            }
+        }
+        // Add largest to sorted list
+        vec_browse_popular_sorted.push_back(vec_browse_popular_temp[largest]);
+    }
+    vec_browse_popular.clear();
+    for ( int add_i = vec_browse_popular_sorted.size() - 1; add_i >= 0; --add_i ) {
+        vec_browse_popular.push_back(vec_browse_popular_sorted[add_i]);
     }
 
     return true;
@@ -578,16 +627,15 @@ void THREAD_background_worker () {
                 }
                 if ( ( inv_instances_vector[i_instance].enabled && inv_instances_vector[i_instance].api_enabled ) && ( inv_instances_vector[i_instance].banned == false ) ) {
                     // Instance loop for enabled and unbanned instances.
-                    
 
                     if ( browse_opened ) {
                         if ( epoch() >= inv_instances_vector[i_instance].last_update_popular + 300 ) { // If last update time is more than 5 minutes.
                             if ( update_browse_popular(i_instance) ) {
-                                log("Popular videos received and updated from instance: " + inv_instances_vector[i_instance].name + "Updating this instance in 5-10 minutes");
+                                log("Popular updated from instance: " + inv_instances_vector[i_instance].name + " refreshing this instance in 5-10 minutes");
                                 inv_instances_vector[i_instance].last_update_popular = epoch() + random_number(0, 300); // Add random delay to update cycle
                             } else {
-                                log("Popular update failed for instance: " + inv_instances_vector[i_instance].name);
-                                inv_instances_vector[i_instance].last_update_popular = epoch() + 600; // Add 10 minutes until next check.
+                                log("Popular update failed for instance, waiting 10-20 minutes: " + inv_instances_vector[i_instance].name);
+                                inv_instances_vector[i_instance].last_update_popular = epoch() + random_number(600, 1200); // Add 10-20 minutes until next check.
                             }
                         }
                     }
