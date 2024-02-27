@@ -20,6 +20,7 @@ Resources
 #include <ctime>
 #include <bits/stdc++.h>
 #include <filesystem>
+#include <algorithm>
 
 // Curl
 #include <curl/curl.h>
@@ -495,6 +496,8 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
     }
     // json in data value, todo: parse and add to popular list sorted order based on epoch date released.
 
+    std::vector<std::string> vec_browse_popular_temp; // init temporary video vector
+
     for (const auto& item : data) { // for each video in popular list
 
         std::string videoid =   item["videoId"];
@@ -526,12 +529,21 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[end_of_list].published = published;
             inv_videos_vector[end_of_list].viewcount = viewcount;
         }
-        // Todo: add videoIDs to popular vector in sorted order.
-        // Add all to temporary vector in for loop, after loop,
-        // copy entire public list to the temporary list without duplicates,
-        // and add them to the public again, but sorted by release date gotten from inv_videos_vector
-        //
+        // Add to temporary vector
+        vec_browse_popular_temp.push_back(videoid);
     }
+    // Todo: add videoIDs to popular vector in sorted order.
+    // Add all to temporary vector in for loop, after loop,
+    // copy entire public list to the temporary list without duplicates,
+    // and add them to the public again, but sorted by release date gotten from inv_videos_vector
+    //
+    log("Temporary popular vector items: " + to_string_int(vec_browse_popular_temp.size()));
+    // merge and sort
+    for ( int i = 0; i < vec_browse_popular.size(); ++i ) {
+        vec_browse_popular_temp.push_back(vec_browse_popular[i]);
+        log("Added instance: " + vec_browse_popular[i]);
+    }
+
     return true;
 }
 
