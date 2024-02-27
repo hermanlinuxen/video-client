@@ -68,6 +68,7 @@ std::vector <int> input_list;
 bool update_ui = true;
 bool quit = false;
 bool browse_opened = false;
+int current_list_item = 0;
 
 /*
     Menu items:
@@ -131,6 +132,7 @@ struct inv_videos{                      // invidious videos
     bool favorite = false;              // if video is favorite
     bool downloaded = false;            // if video is downloaded or not
     bool currently_downloading = false; // in video is currently downloading
+    bool manual_update = false;         // if video has been manually updated
 };
 std::vector<inv_videos> inv_videos_vector;
 
@@ -637,12 +639,16 @@ void THREAD_background_worker () {
                     }
                 }
             }
+
+        // ToDo: For each loop, walk trough 1 video at a time, to update any possibly missing information.
+        // Check manual_update key
+        // Known missing: Description. Check API for other values: https://docs.invidious.io/api/#get-apiv1videosid
+
         } else { // Attempt again after 10 seconds.
             log("WRK_THR: Unable to update local instances.", 4);
             usleep(60000000); // 60s
             update_instances();
         }
-
         usleep(100000); // 0.1s sleep
     }
 }
@@ -690,6 +696,7 @@ void calculate_inputs () {
         log("Items in input vector: " + to_string_int(input_list.size()));
 
         update_ui = true;
+        int list_item_limit = 0;
 
         for (unsigned i=0; i<input_list.size(); i++) { // Main check loop.
             if ( input_list.size() == 3 ) { // Check if arrow keys.
@@ -699,13 +706,29 @@ void calculate_inputs () {
                         i++;
                         if ( input_list[i] == 65 ) {
                             log("Arrow Up");
+                            if ( current_menu == 1 ) {
+                                if ( ! ( current_list_item <= 0 )) {
+                                    --current_list_item;
+                                }
+                            }
                         } else if ( input_list[i] == 66 ) {
                             log("Arrow Down");
+                            if ( current_menu == 1 ) {
+                                if ( current_browse_type == 0 ) {
+                                    //list_item_limit = inv_instances_vector.size() - 1;
+                                    list_item_limit = 20;
+                                }
+
+                                if ( current_list_item < list_item_limit ) {
+                                    ++current_list_item;
+                                }
+                            }
                         } else if ( input_list[i] == 67 ) {
                             log("Arrow Right");
                             if ( current_menu == 1 ) {
                                 if ( current_browse_type < 3 ) {
                                     ++current_browse_type;
+                                    current_list_item = 0;
                                     update_ui = true;
                                 }
                             }
@@ -714,6 +737,7 @@ void calculate_inputs () {
                             if ( current_menu == 1 ) {
                                 if ( ! current_browse_type < 1 ) {
                                     --current_browse_type;
+                                    current_list_item = 0;
                                     update_ui = true;
                                 }
                             }
@@ -728,8 +752,8 @@ void calculate_inputs () {
                 }
             }
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
-            if ( input_list[i] == 49 ) { current_menu = 0; } // Key 1 pressed / main menu
-            else if ( input_list[i] == 50 ) { current_menu = 1; } // Key 2 pressed / main menu
+            if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
+            else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
             else if ( input_list[0] == 113 ) { quit = true; }
 
             else { log("Key unknown: " + to_string_int(input_list[0])); }
@@ -823,6 +847,51 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         printf("\033[%d;%dH", top_h, m);
         std::cout << frame_color << "┨ " << frame_title_color << color_bold << title_str << frame_color << " ┠" << color_reset;
     }
+}
+
+void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
+
+    /*
+        What to display: ( . dot = whitespace)
+        Title - Should be 40 Characters. Colors: White normal, green downloaded, yellow downloading red failed download. Cutting required
+        Creator - 20 Characters?. Cutting required
+        Video Length - mm:ss, if 1+ Hour: 1H-12, 2H-36 etc. If 10+ Hours: 10 H
+        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Medium: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
+        Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
+        Star at the end for favorite. ✦
+    */
+
+    int list_length = bot_h - top_h + 1;
+    int scrollbar_length = bot_h - top_h + 3;
+    std::string scrollbar_character;
+
+    for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
+        printf("\033[%d;%dH", top_h + scrollbar - 1, bot_w + 1 );
+        if ( scrollbar == 0 ) {
+            scrollbar_character = "┳";
+        } else if ( scrollbar == scrollbar_length - 1 ) {
+            scrollbar_character = "┻";
+        } else if ( scrollbar == 4 ) { // Test
+            scrollbar_character = "█";
+        } else {
+            scrollbar_character = "┃";
+        }
+        std::cout << color_cyan << scrollbar_character << color_reset;
+    }
+
+    for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
+
+        if ( current_list_item == line ) {
+            printf("\033[%d;%dH", top_h + line, top_w - 2);
+            std::cout << color_red << color_bold << "▶" << color_reset;
+            printf("\033[%d;%dH", top_h + line, bot_w - 2);
+            std::cout << color_red << color_bold << "◀" << color_reset;
+        }
+        printf("\033[%d;%dH", top_h + line, top_w + 1);
+        std::cout << "Item Here! " << line;
+
+    }
+
 }
 
 void menu_item_main ( int w, int h ) {
@@ -919,6 +988,14 @@ void menu_item_browse ( int w, int h ) {
     draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse" );
 
     draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "< " + browse_types[current_browse_type] + " >" );
+
+    if ( current_browse_type == 0 ) { // Popular
+        int list_top_w = 5;
+        int list_bot_w = w - 4;
+        int list_top_h = fixed_height + 3;
+        int list_bot_h = h - 2;
+        draw_list_popular(list_top_w, list_top_h, list_bot_w, list_bot_h);
+    }
 }
 
 void draw_ui ( int w, int h ) {
@@ -997,8 +1074,8 @@ int main ( int argc, char *argv[] ) {
     while (std::getline(config_file_favorites_file, line)) { log("Adding favorites: " + line); vec_favorited_videos.push_back(line); }
 
     // Start process for updating local instances.
-    std::thread background_thread(THREAD_background_worker);
-    background_thread.detach();
+    //std::thread background_thread(THREAD_background_worker);
+    //background_thread.detach();
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
