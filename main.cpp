@@ -494,7 +494,6 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
         log("Instance does not support popular? " + inv_instances_vector[instance].name);
         return false;
     }
-    // json in data value, todo: parse and add to popular list sorted order based on epoch date released.
 
     std::vector<std::string> vec_browse_popular_temp; // init temporary video vector
 
@@ -549,8 +548,6 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
         }
     }
 
-    // get_videoid_from_vector(videoid);
-
     std::vector<std::string> vec_browse_popular_sorted; // init temporary sorted vector, sorted largest numbers first
 
     // vec_browse_popular_temp contains all videoIDs needed to sort.
@@ -592,11 +589,10 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
     for ( int add_i = vec_browse_popular_sorted.size() - 1; add_i >= 0; --add_i ) {
         vec_browse_popular.push_back(vec_browse_popular_sorted[add_i]);
     }
-
     return true;
 }
 
-
+// Add key int to key list vector.
 void add_key_input ( int key = 0) {
     if ( ! key == 0 ) {
         input_list.push_back(key);
@@ -647,7 +643,7 @@ void THREAD_background_worker () {
             update_instances();
         }
 
-        usleep(100000); // 0.5s sleep
+        usleep(100000); // 0.1s sleep
     }
 }
 
@@ -703,7 +699,6 @@ void calculate_inputs () {
                         i++;
                         if ( input_list[i] == 65 ) {
                             log("Arrow Up");
-                            log("Videos in list: " + to_string_int(inv_videos_vector.size()));
                         } else if ( input_list[i] == 66 ) {
                             log("Arrow Down");
                         } else if ( input_list[i] == 67 ) {
@@ -905,7 +900,7 @@ void menu_item_main ( int w, int h ) {
 
 void menu_item_browse ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom video list.
-    
+
     int vertical_border = 0;
     int horizontal_border = 0;
 
@@ -1079,7 +1074,6 @@ int main ( int argc, char *argv[] ) {
     collapse_threads = true;
 
     if ( interrupt ) {
-        //printf("\033[%d;%dH", h, 0);
         log("Interrupt signal received", 4);
         std::cout << "\nInterrupt!\n";
         return 1;
