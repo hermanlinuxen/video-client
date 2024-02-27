@@ -326,6 +326,23 @@ int random_number ( const int min, const int max ) { // Can return both the min 
     return rand()%(max-min + 1) + min;
 }
 
+// From range to range
+int convert_range(std::pair<double, double> from_range, double from_value, std::pair<double, double> to_range) {
+    double ratio = (from_value - from_range.first) / (from_range.second - from_range.first);
+    double ratioThousand = ratio * 1000;
+    double to_value = to_range.first + (ratioThousand / 1000) * (to_range.second - to_range.first);
+    return (int)to_value;
+}
+
+// Truncate String
+std::string truncate(const std::string& input, int max) {
+    if (input.length() <= max) {
+        return input;
+    } else {
+        return input.substr(0, max - 3) + "...";
+    }
+}
+
 // Get videoid from main video vector
 std::pair<bool, int> get_videoid_from_vector ( std::string id ) {
     for ( int i = 0; i < inv_videos_vector.size(); ++i ) {
@@ -629,6 +646,7 @@ void THREAD_background_worker () {
                     if ( browse_opened ) {
                         if ( epoch() >= inv_instances_vector[i_instance].last_update_popular + 300 ) { // If last update time is more than 5 minutes.
                             if ( update_browse_popular(i_instance) ) {
+                                update_ui = true;
                                 log("Popular updated from instance: " + inv_instances_vector[i_instance].name + " refreshing this instance in 5-10 minutes");
                                 inv_instances_vector[i_instance].last_update_popular = epoch() + random_number(0, 300); // Add random delay to update cycle
                             } else {
@@ -693,7 +711,7 @@ void calculate_inputs () {
 
     if ( ! input_list.size() == 0 ) {
 
-        log("Items in input vector: " + to_string_int(input_list.size()));
+        //log("Items in input vector: " + to_string_int(input_list.size()));
 
         update_ui = true;
         int list_item_limit = 0;
@@ -705,18 +723,15 @@ void calculate_inputs () {
                     if ( input_list[i] == 91 ){
                         i++;
                         if ( input_list[i] == 65 ) {
-                            log("Arrow Up");
                             if ( current_menu == 1 ) {
                                 if ( ! ( current_list_item <= 0 )) {
                                     --current_list_item;
                                 }
                             }
                         } else if ( input_list[i] == 66 ) {
-                            log("Arrow Down");
                             if ( current_menu == 1 ) {
                                 if ( current_browse_type == 0 ) {
-                                    //list_item_limit = inv_instances_vector.size() - 1;
-                                    list_item_limit = 20;
+                                    list_item_limit = vec_browse_popular.size() - 1;
                                 }
 
                                 if ( current_list_item < list_item_limit ) {
@@ -724,7 +739,6 @@ void calculate_inputs () {
                                 }
                             }
                         } else if ( input_list[i] == 67 ) {
-                            log("Arrow Right");
                             if ( current_menu == 1 ) {
                                 if ( current_browse_type < 3 ) {
                                     ++current_browse_type;
@@ -733,7 +747,6 @@ void calculate_inputs () {
                                 }
                             }
                         } else if ( input_list[i] == 68 ) {
-                            log("Arrow Left");
                             if ( current_menu == 1 ) {
                                 if ( ! current_browse_type < 1 ) {
                                     --current_browse_type;
@@ -851,19 +864,17 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
 
 void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
-    /*
-        What to display: ( . dot = whitespace)
-        Title - Should be 40 Characters. Colors: White normal, green downloaded, yellow downloading red failed download. Cutting required
-        Creator - 20 Characters?. Cutting required
-        Video Length - mm:ss, if 1+ Hour: 1H-12, 2H-36 etc. If 10+ Hours: 10 H
-        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Medium: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
-        Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
-        Star at the end for favorite. ✦
-    */
-
     int list_length = bot_h - top_h + 1;
+
     int scrollbar_length = bot_h - top_h + 3;
     std::string scrollbar_character;
+    std::pair<double, double> from_vidlist = std::make_pair(0, vec_browse_popular.size());
+    std::pair<double, double> to_scroll = std::make_pair(0, scrollbar_length);
+    double from_scrollbar_value = current_list_item;
+    int scrollbar_handle = convert_range(from_vidlist, from_scrollbar_value, to_scroll);
+    if ( scrollbar_handle <= 1 ) {
+        scrollbar_handle = 1;
+    }
 
     for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
         printf("\033[%d;%dH", top_h + scrollbar - 1, bot_w + 1 );
@@ -871,7 +882,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             scrollbar_character = "┳";
         } else if ( scrollbar == scrollbar_length - 1 ) {
             scrollbar_character = "┻";
-        } else if ( scrollbar == 4 ) { // Test
+        } else if ( scrollbar == scrollbar_handle ) { // Test
             scrollbar_character = "█";
         } else {
             scrollbar_character = "┃";
@@ -879,7 +890,26 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         std::cout << color_cyan << scrollbar_character << color_reset;
     }
 
+    /*
+        What to display: ( . dot = whitespace)
+        Title - Should be 40 Characters. Colors: White normal, green downloaded, yellow downloading red failed download. Cutting required
+        Video Length - mm:ss, if 1+ Hour: 1H-12, 2H-36 etc. If 10+ Hours: 10 H
+        Creator - 20 Characters?. Cutting required
+        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Medium: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
+        Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
+        Star at the end for favorite. ✦
+    */
+    int list_shown_item = 0;
+    std::string title;
+
     for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
+        if ( vec_browse_popular.size() != 0 ) {
+            //std::string videoid_test = vec_browse_popular[list_shown_item];
+            auto video_vector_number = get_videoid_from_vector(vec_browse_popular[list_shown_item]);
+            title = inv_videos_vector[video_vector_number.second].title;
+        } else {
+            title = "Null";
+        }
 
         if ( current_list_item == line ) {
             printf("\033[%d;%dH", top_h + line, top_w - 2);
@@ -888,8 +918,9 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             std::cout << color_red << color_bold << "◀" << color_reset;
         }
         printf("\033[%d;%dH", top_h + line, top_w + 1);
-        std::cout << "Item Here! " << line;
+        std::cout << truncate(title, 50);
 
+        ++list_shown_item;
     }
 
 }
@@ -1074,8 +1105,8 @@ int main ( int argc, char *argv[] ) {
     while (std::getline(config_file_favorites_file, line)) { log("Adding favorites: " + line); vec_favorited_videos.push_back(line); }
 
     // Start process for updating local instances.
-    //std::thread background_thread(THREAD_background_worker);
-    //background_thread.detach();
+    std::thread background_thread(THREAD_background_worker);
+    background_thread.detach();
 
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
