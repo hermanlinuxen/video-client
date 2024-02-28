@@ -895,18 +895,42 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         Title - Should be 40 Characters. Colors: White normal, green downloaded, yellow downloading red failed download. Cutting required
         Video Length - mm:ss, if 1+ Hour: 1H-12, 2H-36 etc. If 10+ Hours: 10 H
         Creator - 20 Characters?. Cutting required
-        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Medium: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
+        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Long: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
         Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
         Star at the end for favorite. ✦
     */
     int list_shown_item = 0;
     std::string title;
+    std::string author;
+    std::string views;
+    std::string released;
+    bool wide_list = true; // Test
+
+    int pos_star = bot_w - 5;
+    int pos_views;
+    int pos_released;
+
+    if ( wide_list ) {
+        pos_views = bot_w - 16;
+        pos_released = bot_w - 25;
+    } else {
+        pos_views = bot_w - 10;
+        pos_released = bot_w - 15;
+    }
 
     for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
         if ( vec_browse_popular.size() != 0 ) {
             //std::string videoid_test = vec_browse_popular[list_shown_item];
             auto video_vector_number = get_videoid_from_vector(vec_browse_popular[list_shown_item]);
             title = inv_videos_vector[video_vector_number.second].title;
+            author = inv_videos_vector[video_vector_number.second].author;
+            if ( wide_list ) { // 10 Long
+                views = "946K Views";
+                released = "296 Days";
+            } else { // 4 Long
+                views = "127K";
+                released = "123D";
+            }
         } else {
             title = "Null";
         }
@@ -917,8 +941,23 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             printf("\033[%d;%dH", top_h + line, bot_w - 2);
             std::cout << color_red << color_bold << "◀" << color_reset;
         }
-        printf("\033[%d;%dH", top_h + line, top_w + 1);
-        std::cout << truncate(title, 50);
+        printf("\033[%d;%dH", top_h + line, top_w + 1); // Title
+        std::cout << truncate(title, 40);
+
+        printf("\033[%d;%dH", top_h + line, top_w + 42); // Video Length
+        std::cout << color_blue << "XX:XX" << color_reset;
+        /*
+        printf("\033[%d;%dH", top_h + line, top_w + 48); // author
+        std::cout << truncate(author, 20);*/
+
+        printf("\033[%d;%dH", top_h + line, pos_released); // released
+        std::cout << released;
+
+        printf("\033[%d;%dH", top_h + line, pos_views); // Views
+        std::cout << views;
+
+        printf("\033[%d;%dH", top_h + line, pos_star); // Star
+        std::cout << color_yellow << "✦" << color_reset;
 
         ++list_shown_item;
     }
