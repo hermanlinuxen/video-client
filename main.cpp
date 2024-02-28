@@ -109,6 +109,7 @@ const std::string color_green  = "\033[32m";
 const std::string color_yellow = "\033[33m";
 const std::string color_blue   = "\033[34m";
 const std::string color_cyan   = "\033[36m";
+const std::string color_gray   = "\033[90m";
 
 const std::string frame_title_color = color_green;
 const std::string frame_color = color_yellow;
@@ -378,6 +379,29 @@ std::string uploaded_format(int seconds) {
         unit = interval.first;
     }
     return std::to_string(result) + "y";
+}
+
+// Views int to abbreviated number, Ex. 154K views
+std::string abbreviated_number(int num) {
+    std::string result;
+    if (num >= 1000000000) {
+        result = std::to_string(num / 1000000000) + "B";
+    } else if (num >= 1000000) {
+        result = std::to_string(num / 1000000) + "M";
+    } else if (num >= 1000) {
+        result = std::to_string(num / 1000) + "K";
+    } else {
+        result = std::to_string(num);
+    }
+    int len = result.length();
+    if ( len == 1 ) {
+        result = "   " + result;
+    } else if ( len == 2 ) {
+        result = "  " + result;
+    } else if ( len == 3 ) {
+        result = " " + result;
+    }
+    return result;
 }
 
 // Truncate String
@@ -917,6 +941,7 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
 void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
     int list_length = bot_h - top_h + 1;
+    int list_width;
 
     int scrollbar_length = bot_h - top_h + 3;
     std::string scrollbar_character;
@@ -961,19 +986,16 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
     std::string released;
     std::string length;
     bool favorite;
-    bool wide_list = true; // Test
 
     int pos_star = bot_w - 5;
-    int pos_views;
-    int pos_released;
+    int pos_views = bot_w - 16;
+    int pos_released = bot_w - 25;
 
-    if ( wide_list ) {
-        pos_views = bot_w - 16;
-        pos_released = bot_w - 25;
-    } else {
-        pos_views = bot_w - 10;
-        pos_released = bot_w - 15;
-    }
+    list_width = bot_w - 7 - top_w;
+    int length_to_remove = list_width - pos_released + top_w;
+    int dynamic_section = list_width - length_to_remove;
+    int length_author = dynamic_section * 0.4;
+    int length_title = dynamic_section - length_author;
 
     if ( current_list_item == 0 ) { list_shift = 0; }
     if ( current_list_item - list_shift >= list_length - 5 ) {
@@ -988,23 +1010,14 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
     for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
         if ( vec_browse_popular.size() != 0 ) {
-            //std::string videoid_test = vec_browse_popular[list_shown_item];
+            if ( vec_browse_popular.size() <= line ) { break; }
             auto video_vector_number = get_videoid_from_vector(vec_browse_popular[list_shown_item + list_shift]);
             title = inv_videos_vector[video_vector_number.second].title;
             author = inv_videos_vector[video_vector_number.second].author;
             favorite = inv_videos_vector[video_vector_number.second].favorite;
             length = seconds_to_list_format(inv_videos_vector[video_vector_number.second].lengthseconds);
-            //released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
-            released = to_string_int(epoch() - inv_videos_vector[video_vector_number.second].published);
-
-            /*if ( wide_list ) { // 10 Long
-                views = "946K Views";
-                released = "296 Days";
-            } else { // 4 Long
-                views = "127K";
-                released = "123D";
-            }*/
-
+            released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
+            views = abbreviated_number(inv_videos_vector[video_vector_number.second].viewcount);
         } else {
             title = "Loading...";
         }
@@ -1013,30 +1026,37 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             printf("\033[%d;%dH", top_h + line, top_w - 2);
             std::cout << color_red << color_bold << "▶" << color_reset;
             printf("\033[%d;%dH", top_h + line, bot_w - 2);
-            std::cout << color_red << color_bold << "◀" << color_reset;
+            std::cout  << color_red << color_bold << "◀" << color_reset;
         }
-        printf("\033[%d;%dH", top_h + line, top_w + 1); // Title
-        std::cout << truncate(title, 40);
 
-        printf("\033[%d;%dH", top_h + line, top_w + 42); // Video Length
-        std::cout << color_blue << length << color_reset;
-        /*
-        printf("\033[%d;%dH", top_h + line, top_w + 48); // author
-        std::cout << truncate(author, 20);*/
+        printf("\033[%d;%dH", top_h + line, top_w + 1); // Title
+        std::cout << color_bold << truncate(title, length_title) << color_reset;
+
+        if ( vec_browse_popular.size() == 0 ) { break; }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 2); // Video Length
+        if ( current_list_item == line + list_shift) {
+            std::cout << color_bold << color_red << length << color_reset;
+        } else {
+            std::cout << color_bold << color_blue << length << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
+        std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
 
         printf("\033[%d;%dH", top_h + line, pos_released); // released
-        std::cout << released;
+        std::cout << color_bold << released << color_reset;
+        printf("\033[%d;%dH", top_h + line, pos_released + 4);
+        std::cout << color_gray << "Ago" << color_reset;
 
         printf("\033[%d;%dH", top_h + line, pos_views); // Views
-        std::cout << views;
+        std::cout << color_bold << views << color_gray << " Views" << color_reset;
 
         if ( favorite ) {
             printf("\033[%d;%dH", top_h + line, pos_star); // Star
             std::cout << color_yellow << "✦" << color_reset;
         }
 
-
-        if ( vec_browse_popular.size() == 0 ) { break; }
         ++list_shown_item;
     }
 
@@ -1142,11 +1162,15 @@ void menu_item_browse ( int w, int h ) {
     std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
 
     if ( current_browse_type == 0 ) { // Popular
-        int list_top_w = 5;
-        int list_bot_w = w - 4;
-        int list_top_h = fixed_height + 3;
-        int list_bot_h = h - 2;
-        draw_list_popular(list_top_w, list_top_h, list_bot_w, list_bot_h);
+        if ( dialog_box ) {
+            //int 
+        } else {
+            int list_top_w = 5;
+            int list_bot_w = w - 4;
+            int list_top_h = fixed_height + 3;
+            int list_bot_h = h - 2;
+            draw_list_popular(list_top_w, list_top_h, list_bot_w, list_bot_h);
+        }
     }
 }
 
@@ -1263,7 +1287,7 @@ int main ( int argc, char *argv[] ) {
 
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
         w = size.ws_col; h = size.ws_row;
-        if ( w < 60 || h < 20 ) { 
+        if ( w < 80 || h < 20 ) { 
             std::cout << "\033c";
             std::cout << "Terminal too small!\nCurrent: Width: " << w << " Heigth: " << h << "\n\nMore Needed: ";
 
@@ -1294,15 +1318,6 @@ int main ( int argc, char *argv[] ) {
             std::cout << "\e[?25l"; // remove cursor
         }
         usleep(500);
-    }
-
-    // Test:
-    log("Videos in popular: " + to_string_int(vec_browse_popular.size()));
-    for ( int test_i = 0; test_i < vec_browse_popular.size(); ++test_i ) {
-        auto test_video_vector_number = get_videoid_from_vector(vec_browse_popular[test_i]);
-        std::string test_video_vector_id = inv_videos_vector[test_video_vector_number.second].URL;
-        int test_video_vector_epoch = inv_videos_vector[test_video_vector_number.second].published;
-        log("TEST! ID: " + test_video_vector_id + " Epoch: " + to_string_int(epoch() - test_video_vector_epoch));
     }
 
     fputs("\e[?25h", stdout); // Show cursor again.
