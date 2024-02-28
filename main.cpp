@@ -69,6 +69,7 @@ bool update_ui = true;
 bool quit = false;
 bool browse_opened = false;
 int current_list_item = 0;
+int list_shift = 0;
 
 /*
     Menu items:
@@ -334,6 +335,51 @@ int convert_range(std::pair<double, double> from_range, double from_value, std::
     return (int)to_value;
 }
 
+// Convert seconds to video length format
+std::string seconds_to_list_format ( int seconds ) {
+    int hours = seconds / 3600;
+    seconds %= 3600;
+    int minutes = seconds / 60;
+    seconds %= 60;
+    std::stringstream ss;
+    if ( hours > 0 ) {
+        ss << hours << 'h';
+        if ( hours < 10 ) { ss << ':'; }
+        if ( minutes < 10 ) { ss << '0'; }
+        ss << minutes;
+    } else {
+        if ( minutes < 10 ) { ss << '0'; }
+        ss << minutes << ':';
+        if ( seconds < 10 ) { ss << '0'; }
+        ss << seconds;
+    }
+    std::string result = ss.str();
+    if (result.length() > 5)
+        return "*****"; // Overflow, return asterisks
+    return result;
+}
+
+// Converts seconds to time since upload format
+std::string uploaded_format(int seconds) {
+    std::pair<std::string, int> intervals[] = {
+        {"s", 60},
+        {"m", 60},
+        {"h", 24},
+        {"d", 30},
+        {"y", 12}
+    };
+    int result = seconds;
+    std::string unit = "s";
+    for (const auto& interval : intervals) {
+        if (result < interval.second) {
+            return std::to_string(result) + unit;
+        }
+        result /= interval.second;
+        unit = interval.first;
+    }
+    return std::to_string(result) + "y";
+}
+
 // Truncate String
 std::string truncate(const std::string& input, int max) {
     if (input.length() <= max) {
@@ -573,13 +619,15 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
     int sort_count = vec_browse_popular_temp.size();
 
     int largest = 0;
-    int epoch;
+    int winner;
+    int epoch_release;
     int id;
     bool skip;
 
     for ( int sort_i = 0; sort_i < sort_count; ++sort_i ) {
         // Add largest epoch found to first available element in vec_browse_popular_sorted, and remove it from temp vector.
         largest = 0;
+        winner = 0;
 
         for ( int current_i = 0; current_i < vec_browse_popular_temp.size(); ++current_i ) {
             skip = false;
@@ -596,16 +644,17 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
                 log("VideoID missing from main list" + vec_browse_popular_temp[current_i], 4);
                 continue;
             }
-            epoch = inv_videos_vector[id_result.second].published;
-            if ( epoch > largest ) {
-                largest = current_i;
+            epoch_release = inv_videos_vector[id_result.second].published;
+            if ( epoch_release > largest ) {
+                largest = epoch_release;
+                winner = current_i;
             }
         }
         // Add largest to sorted list
-        vec_browse_popular_sorted.push_back(vec_browse_popular_temp[largest]);
+        vec_browse_popular_sorted.push_back(vec_browse_popular_temp[winner]);
     }
     vec_browse_popular.clear();
-    for ( int add_i = vec_browse_popular_sorted.size() - 1; add_i >= 0; --add_i ) {
+    for ( int add_i = 0; add_i < vec_browse_popular_sorted.size(); ++add_i ) {
         vec_browse_popular.push_back(vec_browse_popular_sorted[add_i]);
     }
     return true;
@@ -700,11 +749,14 @@ void THREAD_input () {
 void calculate_inputs () {
 
     if ( input_list.size() == 1 ) {
-        if ( input_list[0] == 27 ) {
-            if ( input_character == 27 ) {
-                log("Received exit signal.");
-                collapse_threads = true;
-                return;
+        usleep(5000);
+        if ( input_list.size() == 1 ) {
+            if ( input_list[0] == 27 ) {
+                if ( input_character == 27 ) {
+                    log("Received exit signal.");
+                    collapse_threads = true;
+                    return;
+                }
             }
         }
     }
@@ -872,8 +924,10 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
     std::pair<double, double> to_scroll = std::make_pair(0, scrollbar_length);
     double from_scrollbar_value = current_list_item;
     int scrollbar_handle = convert_range(from_vidlist, from_scrollbar_value, to_scroll);
-    if ( scrollbar_handle <= 1 ) {
+    if ( scrollbar_handle <= 1 ) { // Stop scrollbar from clipping
         scrollbar_handle = 1;
+    } else if ( scrollbar_handle >= scrollbar_length - 2 ) {
+        scrollbar_handle = scrollbar_length - 2;
     }
 
     for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
@@ -882,7 +936,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             scrollbar_character = "┳";
         } else if ( scrollbar == scrollbar_length - 1 ) {
             scrollbar_character = "┻";
-        } else if ( scrollbar == scrollbar_handle ) { // Test
+        } else if ( scrollbar == scrollbar_handle ) {
             scrollbar_character = "█";
         } else {
             scrollbar_character = "┃";
@@ -899,11 +953,14 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
         Star at the end for favorite. ✦
     */
+    int last_item = vec_browse_popular.size();
     int list_shown_item = 0;
     std::string title;
     std::string author;
     std::string views;
     std::string released;
+    std::string length;
+    bool favorite;
     bool wide_list = true; // Test
 
     int pos_star = bot_w - 5;
@@ -918,24 +975,41 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         pos_released = bot_w - 15;
     }
 
+    if ( current_list_item == 0 ) { list_shift = 0; }
+    if ( current_list_item - list_shift >= list_length - 5 ) {
+        if ( ! ( current_list_item + 5 >= last_item )) {
+            ++list_shift;
+        }
+    } else if ( current_list_item - list_shift <= 4 ) {
+        if ( current_list_item >= 5 ) {
+            --list_shift;
+        }
+    }
+
     for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
         if ( vec_browse_popular.size() != 0 ) {
             //std::string videoid_test = vec_browse_popular[list_shown_item];
-            auto video_vector_number = get_videoid_from_vector(vec_browse_popular[list_shown_item]);
+            auto video_vector_number = get_videoid_from_vector(vec_browse_popular[list_shown_item + list_shift]);
             title = inv_videos_vector[video_vector_number.second].title;
             author = inv_videos_vector[video_vector_number.second].author;
-            if ( wide_list ) { // 10 Long
+            favorite = inv_videos_vector[video_vector_number.second].favorite;
+            length = seconds_to_list_format(inv_videos_vector[video_vector_number.second].lengthseconds);
+            //released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
+            released = to_string_int(epoch() - inv_videos_vector[video_vector_number.second].published);
+
+            /*if ( wide_list ) { // 10 Long
                 views = "946K Views";
                 released = "296 Days";
             } else { // 4 Long
                 views = "127K";
                 released = "123D";
-            }
+            }*/
+
         } else {
-            title = "Null";
+            title = "Loading...";
         }
 
-        if ( current_list_item == line ) {
+        if ( current_list_item == line + list_shift) {
             printf("\033[%d;%dH", top_h + line, top_w - 2);
             std::cout << color_red << color_bold << "▶" << color_reset;
             printf("\033[%d;%dH", top_h + line, bot_w - 2);
@@ -945,7 +1019,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         std::cout << truncate(title, 40);
 
         printf("\033[%d;%dH", top_h + line, top_w + 42); // Video Length
-        std::cout << color_blue << "XX:XX" << color_reset;
+        std::cout << color_blue << length << color_reset;
         /*
         printf("\033[%d;%dH", top_h + line, top_w + 48); // author
         std::cout << truncate(author, 20);*/
@@ -956,9 +1030,13 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         printf("\033[%d;%dH", top_h + line, pos_views); // Views
         std::cout << views;
 
-        printf("\033[%d;%dH", top_h + line, pos_star); // Star
-        std::cout << color_yellow << "✦" << color_reset;
+        if ( favorite ) {
+            printf("\033[%d;%dH", top_h + line, pos_star); // Star
+            std::cout << color_yellow << "✦" << color_reset;
+        }
 
+
+        if ( vec_browse_popular.size() == 0 ) { break; }
         ++list_shown_item;
     }
 
@@ -1058,6 +1136,10 @@ void menu_item_browse ( int w, int h ) {
     draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse" );
 
     draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "< " + browse_types[current_browse_type] + " >" );
+
+    // Sats:
+    printf("\033[%d;%dH", 2, 3 + 1);
+    std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
 
     if ( current_browse_type == 0 ) { // Popular
         int list_top_w = 5;
@@ -1212,6 +1294,15 @@ int main ( int argc, char *argv[] ) {
             std::cout << "\e[?25l"; // remove cursor
         }
         usleep(500);
+    }
+
+    // Test:
+    log("Videos in popular: " + to_string_int(vec_browse_popular.size()));
+    for ( int test_i = 0; test_i < vec_browse_popular.size(); ++test_i ) {
+        auto test_video_vector_number = get_videoid_from_vector(vec_browse_popular[test_i]);
+        std::string test_video_vector_id = inv_videos_vector[test_video_vector_number.second].URL;
+        int test_video_vector_epoch = inv_videos_vector[test_video_vector_number.second].published;
+        log("TEST! ID: " + test_video_vector_id + " Epoch: " + to_string_int(epoch() - test_video_vector_epoch));
     }
 
     fputs("\e[?25h", stdout); // Show cursor again.
