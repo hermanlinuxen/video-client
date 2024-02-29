@@ -68,6 +68,7 @@ std::vector <int> input_list;
 bool update_ui = true;
 bool quit = false;
 bool browse_opened = false;
+bool dialog_box = false; 
 int current_list_item = 0;
 int list_shift = 0;
 
@@ -843,9 +844,20 @@ void calculate_inputs () {
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
             if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
             else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
-            else if ( input_list[0] == 113 ) { quit = true; }
+            else if ( input_list[i] == 113 ) {
+                if (( current_menu == 1 ) && ( dialog_box )) {
+                    dialog_box = false;
+                } else {
+                    quit = true;
+                }
+            }
+            else if ( input_list[i] == 10 ) {
+                if (( current_menu == 1 ) && ( ! dialog_box )) {
+                    dialog_box = true;
+                }
+            }
 
-            else { log("Key unknown: " + to_string_int(input_list[0])); }
+            else { log("Key unknown: " + to_string_int(input_list[i])); }
         }
         input_list.clear();
     } else {
@@ -1162,8 +1174,24 @@ void menu_item_browse ( int w, int h ) {
     std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
 
     if ( current_browse_type == 0 ) { // Popular
-        if ( dialog_box ) {
-            //int 
+        if ( dialog_box ) { // Popup dialog for selected video
+            if ( vec_browse_popular.size() == 0 ) { dialog_box = false; update_ui = true; } else {
+                // Show dialog box for video
+                std::string dialog_video_id = vec_browse_popular[current_list_item];
+                auto dialog_video_found = get_videoid_from_vector(dialog_video_id);
+                if ( dialog_video_found.first ) {
+                    int dialog_video_num = dialog_video_found.second;
+                    log("Dialog menu for video: " + inv_videos_vector[dialog_video_num].title);
+                    
+                    int dialog_box_top_w = horizontal_border + 3;
+                    int dialog_box_bot_w = w - horizontal_border - 2;
+                    int dialog_box_top_h = vertical_border + fixed_height + 2;
+                    int dialog_box_bot_h = h - vertical_border - 1;
+
+                    draw_box( dialog_box_top_w, dialog_box_top_h, dialog_box_bot_w, dialog_box_bot_h, true, 0, truncate(inv_videos_vector[dialog_video_num].title, dialog_box_bot_w - 10));
+
+                }
+            }
         } else {
             int list_top_w = 5;
             int list_bot_w = w - 4;
