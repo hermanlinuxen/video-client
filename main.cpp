@@ -68,7 +68,7 @@ std::vector <int> input_list;
 bool update_ui = true;
 bool quit = false;
 bool browse_opened = false;
-bool dialog_box = false; 
+bool popup_box = false; 
 int current_list_item = 0;
 int list_shift = 0;
 
@@ -128,7 +128,6 @@ struct inv_videos{                      // invidious videos
     int viewcount;                      // video views
     int downloaded_time = 0;            // epoch time when video was downloaded
     std::string title;                  // video title
-    std::string publishedtext;          // release date converted to human readable format?
     std::string author;                 // video creator
     std::string author_id;              // ID of video creator
     std::string description;            // video description.
@@ -792,68 +791,88 @@ void calculate_inputs () {
 
         update_ui = true;
         int list_item_limit = 0;
+        int key_arrow_type = 0; // Type of arrow key. 0-Null, 1-UP, 2-Down, 3-Left, 4-Right
 
         for (unsigned i=0; i<input_list.size(); i++) { // Main check loop.
-            if ( input_list.size() == 3 ) { // Check if arrow keys.
+            log("Processing keypress: " + to_string_int(i));
+            if ( input_list.size() == 3 ) { // Check if arrow keys.l
                 if ( input_list[i] == 27 ){
                     i++;
                     if ( input_list[i] == 91 ){
                         i++;
                         if ( input_list[i] == 65 ) {
-                            if ( current_menu == 1 ) {
-                                if ( ! ( current_list_item <= 0 )) {
-                                    --current_list_item;
-                                }
-                            }
+                            key_arrow_type = 1;
                         } else if ( input_list[i] == 66 ) {
-                            if ( current_menu == 1 ) {
-                                if ( current_browse_type == 0 ) {
-                                    list_item_limit = vec_browse_popular.size() - 1;
-                                }
-
-                                if ( current_list_item < list_item_limit ) {
-                                    ++current_list_item;
-                                }
-                            }
+                            key_arrow_type = 2;
                         } else if ( input_list[i] == 67 ) {
-                            if ( current_menu == 1 ) {
-                                if ( current_browse_type < 3 ) {
-                                    ++current_browse_type;
-                                    current_list_item = 0;
-                                    update_ui = true;
-                                }
-                            }
+                            key_arrow_type = 3;
                         } else if ( input_list[i] == 68 ) {
-                            if ( current_menu == 1 ) {
-                                if ( ! current_browse_type < 1 ) {
-                                    --current_browse_type;
-                                    current_list_item = 0;
-                                    update_ui = true;
-                                }
-                            }
+                            key_arrow_type = 4;
                         } else {
                             log("Unknown combination key!", 3);
                         }
                     } else {
                         log("Unknown combination key!", 3);
                     }
-                    input_list.clear();
-                    continue;
                 }
             }
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
             if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
             else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
             else if ( input_list[i] == 113 ) {
-                if (( current_menu == 1 ) && ( dialog_box )) {
-                    dialog_box = false;
+                if (( current_menu == 1 ) && ( popup_box )) {
+                    popup_box = false;
                 } else {
                     quit = true;
                 }
             }
             else if ( input_list[i] == 10 ) {
-                if (( current_menu == 1 ) && ( ! dialog_box )) {
-                    dialog_box = true;
+                if (( current_menu == 1 ) && ( ! popup_box )) {
+                    popup_box = true;
+                }
+            }
+            else if ( key_arrow_type != 0 ) { // alternate approach? if menu = x -> if key = up etc.
+                log("Running arrow key: " + to_string_int(key_arrow_type));
+                if ( key_arrow_type == 1 ) { // Up
+                    if ( current_menu == 1 ) {
+                        if ( ! popup_box ) {
+                            if ( ! ( current_list_item <= 0 )) {
+                                --current_list_item;
+                            }
+                        }
+                    }
+
+                } else if ( key_arrow_type == 2 ) { // Down
+                    if ( current_menu == 1 ) {
+                        if ( current_browse_type == 0 ) {
+                            list_item_limit = vec_browse_popular.size() - 1;
+                        }
+                        if ( ! popup_box ) {
+                            if ( current_list_item < list_item_limit ) {
+                                ++current_list_item;
+                            }
+                        }
+                    }
+
+                } else if ( key_arrow_type == 3 ) { // Left
+                    if ( current_menu == 1 ) {
+                        if ( current_browse_type < 3 ) {
+                            if ( ! popup_box ) {
+                                ++current_browse_type;
+                                current_list_item = 0;
+                            }
+                        }
+                    }
+
+                } else if ( key_arrow_type == 4 ) { // Right
+                    if ( current_menu == 1 ) {
+                        if ( ! current_browse_type < 1 ) {
+                            if ( ! popup_box ) {
+                                --current_browse_type;
+                                current_list_item = 0;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1074,6 +1093,56 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
 }
 
+void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::string title_str, int video_num ) {
+
+    draw_box( top_w, top_h, bot_w, bot_h, true, 0, truncate(inv_videos_vector[video_num].title, bot_w - 10));
+
+    /*
+        ToDo:
+        Details:
+        - video title
+        - creator
+        - creator subs amount ? Reuired additional API request for details.
+        - vid length
+        - vid views
+        - vid released date
+        - vid likes/like ratio
+
+        Bottom:
+        - Description
+        
+        If's:
+        - if downloaded
+        - if favorite
+        - if subscribed
+        - 
+
+        Options:
+		- Subscribe to channel
+		- Favorite video
+		- Download video
+		- Open Channel
+        - Open instance
+		- Play (If Downloaded)
+    */
+
+    std::string video_title = inv_videos_vector[video_num].title;
+    std::string video_author_name = inv_videos_vector[video_num].author;
+    std::string video_author_id = inv_videos_vector[video_num].author_id;
+
+    bool downloaded = inv_videos_vector[video_num].downloaded;
+    bool favorite = inv_videos_vector[video_num].favorite;
+    bool subscribed = false;
+
+    for ( int author_i = 0; author_i < vec_subscribed_channels.size(); ++author_i ) {
+        if ( vec_subscribed_channels[author_i] == video_author_id ) {
+            subscribed = true;
+        }
+    }
+    
+
+}
+
 void menu_item_main ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom more info.
 
@@ -1174,22 +1243,22 @@ void menu_item_browse ( int w, int h ) {
     std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
 
     if ( current_browse_type == 0 ) { // Popular
-        if ( dialog_box ) { // Popup dialog for selected video
-            if ( vec_browse_popular.size() == 0 ) { dialog_box = false; update_ui = true; } else {
-                // Show dialog box for video
-                std::string dialog_video_id = vec_browse_popular[current_list_item];
-                auto dialog_video_found = get_videoid_from_vector(dialog_video_id);
-                if ( dialog_video_found.first ) {
-                    int dialog_video_num = dialog_video_found.second;
-                    log("Dialog menu for video: " + inv_videos_vector[dialog_video_num].title);
+        if ( popup_box ) { // Popup popup for selected video
+            if ( vec_browse_popular.size() == 0 ) { popup_box = false; update_ui = true; } else {
+                // Show popup box for video
+                std::string popup_video_id = vec_browse_popular[current_list_item];
+                auto popup_video_found = get_videoid_from_vector(popup_video_id);
+                if ( popup_video_found.first ) {
+                    int popup_video_num = popup_video_found.second;
+                    log("popup menu for video: " + inv_videos_vector[popup_video_num].title);
                     
-                    int dialog_box_top_w = horizontal_border + 3;
-                    int dialog_box_bot_w = w - horizontal_border - 2;
-                    int dialog_box_top_h = vertical_border + fixed_height + 2;
-                    int dialog_box_bot_h = h - vertical_border - 1;
+                    int popup_box_top_w = horizontal_border + 4;
+                    int popup_box_bot_w = w - horizontal_border - 3;
+                    int popup_box_top_h = vertical_border + fixed_height + 3;
+                    int popup_box_bot_h = h - vertical_border - 2;
 
-                    draw_box( dialog_box_top_w, dialog_box_top_h, dialog_box_bot_w, dialog_box_bot_h, true, 0, truncate(inv_videos_vector[dialog_video_num].title, dialog_box_bot_w - 10));
-
+                    // Missing popup_video_num
+                    draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, inv_videos_vector[popup_video_num].title, popup_video_num );
                 }
             }
         } else {
@@ -1284,6 +1353,7 @@ int main ( int argc, char *argv[] ) {
     // Local UI Elements
     int tmp_w, tmp_h, w, h; // Used to store previous window size to detect changes.
     struct winsize size;
+    int last_ui_update = 0;
 
     std::cout << "\033c"; // Clear screen.
     std::cout << "\e[?25l"; // remove cursor
@@ -1309,6 +1379,11 @@ int main ( int argc, char *argv[] ) {
 
         if ( ( current_menu == 1 ) && ( ! browse_opened ) ) {
             browse_opened = true;
+        }
+
+        if ( epoch() > last_ui_update + 1 ) { // updates every 2 seconds.
+            update_ui = true;
+            last_ui_update = epoch();
         }
 
         calculate_inputs();
