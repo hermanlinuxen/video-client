@@ -225,17 +225,6 @@ std::string to_string_char ( char char_in[] ) {
     return char_str;
 }
 
-// check if file contains string
-bool find_string_in_file ( const std::string& filename, const std::string& content ) {
-    std::ifstream file(filename);
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line == content) {
-            return true; // String found in the file
-        }
-    }
-    return false; // String not found in the file
-}
 // append string to file
 int append_file ( const std::string& filename, const std::string& content, bool newline = false ) { // 0 = added, 1 = allready in file, 2 fail.
     if ( find_string_in_file(filename, content) ) {
@@ -256,30 +245,6 @@ int append_file ( const std::string& filename, const std::string& content, bool 
         return 2;
     }
 }
-// remove line from file
-void remove_matching_lines ( const std::string& filename, const std::string& pattern ) {
-    std::ifstream inFile(filename);
-    std::vector<std::string> lines;
-    std::string line;
-
-    while (std::getline(inFile, line)) {
-        lines.push_back(line);
-    }
-    inFile.close();
-
-    auto i = lines.begin();
-    while (i != lines.end()) {
-        if (i->find(pattern) != std::string::npos) {
-            i = lines.erase(i);
-        } else { ++i; }
-    }
-
-    std::ofstream outFile(filename);
-    for (const std::string& updatedLine : lines) {
-        outFile << updatedLine << '\n';
-    }
-}
-
 // Log functions
 void log_main ( std::string logmsg, int severity = 0, bool file = false ) {
     std::string severity_prefix;
@@ -322,12 +287,49 @@ void log ( std::string message, int severity = 0 ) {
     }
     log_main(message, severity, log_to_file);
 }
+// check if file contains string
+bool find_string_in_file ( const std::string& filename, const std::string& content ) {
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line == content) {
+            return true; // String found in the file
+        }
+    }
+    return false; // String not found in the file
+}
+// remove line from file
+void remove_matching_lines ( const std::string& filename, const std::string& pattern ) {
+    std::ifstream inFile(filename);
+    std::vector<std::string> lines;
+    std::string line;
+    int string_length = pattern.length();
 
+    if ( string_length == 0 ) {
+        log("Attempted to remove null string from file: " + filename, 3);
+    }
+
+    while (std::getline(inFile, line)) {
+        lines.push_back(line);
+    }
+    inFile.close();
+
+    auto i = lines.begin();
+    while (i != lines.end()) {
+        if (i->find(pattern) != std::string::npos) {
+            i = lines.erase(i);
+        } else { ++i; }
+    }
+
+    std::ofstream outFile(filename);
+    for (const std::string& updatedLine : lines) {
+        outFile << updatedLine << '\n';
+    }
+}
 // Random number
 int random_number ( const int min, const int max ) { // Can return both the min and max values, aswell as every in between.
     return rand()%(max-min + 1) + min;
 }
-
 // From range to range
 int convert_range(std::pair<double, double> from_range, double from_value, std::pair<double, double> to_range) {
     double ratio = (from_value - from_range.first) / (from_range.second - from_range.first);
@@ -335,7 +337,6 @@ int convert_range(std::pair<double, double> from_range, double from_value, std::
     double to_value = to_range.first + (ratioThousand / 1000) * (to_range.second - to_range.first);
     return (int)to_value;
 }
-
 // Convert seconds to video length format
 std::string seconds_to_list_format ( int seconds ) {
     int hours = seconds / 3600;
@@ -359,7 +360,6 @@ std::string seconds_to_list_format ( int seconds ) {
         return "*****"; // Overflow, return asterisks
     return result;
 }
-
 // Converts seconds to time since upload format
 std::string uploaded_format(int seconds) {
     std::pair<std::string, int> intervals[] = {
@@ -380,7 +380,6 @@ std::string uploaded_format(int seconds) {
     }
     return std::to_string(result) + "y";
 }
-
 // Views int to abbreviated number, Ex. 154K views
 std::string abbreviated_number(int num) {
     std::string result;
@@ -403,7 +402,6 @@ std::string abbreviated_number(int num) {
     }
     return result;
 }
-
 // Truncate String
 std::string truncate(const std::string& input, int max) {
     if (input.length() <= max) {
@@ -412,7 +410,6 @@ std::string truncate(const std::string& input, int max) {
         return input.substr(0, max - 3) + "...";
     }
 }
-
 // Get videoid from main video vector
 std::pair<bool, int> get_videoid_from_vector ( std::string id ) {
     for ( int i = 0; i < inv_videos_vector.size(); ++i ) {
@@ -422,14 +419,12 @@ std::pair<bool, int> get_videoid_from_vector ( std::string id ) {
     }
     return std::make_pair(false, 0);
 }
-
 // Write Callback
 size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *data) {
     size_t total_size = size * nmemb;
     data->append((char*)contents, total_size);
     return total_size;
 }
-
 // Curl
 std::pair<bool, std::string> fetch (const std::string& url) {
     CURL *curl;
@@ -463,7 +458,7 @@ std::pair<bool, std::string> fetch (const std::string& url) {
     }
     return std::make_pair(success, output);
 }
-
+// Instances json to variables in vector
 void parse_instances(const json& data) { // receives instances json output, and refreshes list of local instances.
     inv_instances_vector.clear(); // clear instances vector
     int inv_instances_vector_iteration = 0; // Instance vector iteration counter
@@ -520,7 +515,6 @@ void parse_instances(const json& data) { // receives instances json output, and 
         log("Unable to update local instance list!", 4);
     }
 }
-
 // Update local instance list
 void update_instances () {
     auto result = fetch(URL_instances);
@@ -537,7 +531,7 @@ void update_instances () {
         log("Curl is unable to contact API: " + URL_instances, 4);
     }
 }
-
+// Update instance information from file and variables
 void update_instance_info (const int instance) {
     bool skip = false;
     log("Updating instance information for: " + inv_instances_vector[instance].name);
@@ -558,7 +552,6 @@ void update_instance_info (const int instance) {
 
     inv_instances_vector[instance].updated = true;
 }
-
 // Update popular list
 bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/popular
     json data;
@@ -683,14 +676,12 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
     }
     return true;
 }
-
 // Add key int to key list vector.
 void add_key_input ( int key = 0) {
     if ( ! key == 0 ) {
         input_list.push_back(key);
     }
 }
-
 // Background worker and update thread.
 void THREAD_background_worker () {
 
@@ -743,7 +734,6 @@ void THREAD_background_worker () {
         usleep(100000); // 0.1s sleep
     }
 }
-
 // Input thread keeping track of inputs, and adding to queue.
 void THREAD_input () {
 
@@ -768,7 +758,6 @@ void THREAD_input () {
     }
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
 }
-
 // input processing
 void calculate_inputs () {
 
@@ -883,7 +872,7 @@ void calculate_inputs () {
         return;
     }
 }
-
+// Draw frame for specific coordinates, with rounded corners and optional title.
 void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str = "null" ) {
     /*
     Drawbox types: Why do i do this to myself.
@@ -968,7 +957,7 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         std::cout << frame_color << "┨ " << frame_title_color << color_bold << title_str << frame_color << " ┠" << color_reset;
     }
 }
-
+// Draw popular videos list to screen
 void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
     int list_length = bot_h - top_h + 1;
@@ -1092,7 +1081,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
     }
 
 }
-
+// Draw popup video box for detailed information about video
 void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::string title_str, int video_num ) {
 
     draw_box( top_w, top_h, bot_w, bot_h, true, 0, truncate(inv_videos_vector[video_num].title, bot_w - 10));
@@ -1142,7 +1131,7 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
     
 
 }
-
+// Main menu page
 void menu_item_main ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom more info.
 
@@ -1215,7 +1204,7 @@ void menu_item_main ( int w, int h ) {
         std::cout << color_green << menu_items[i] << color_reset; if ( i == 0 ) { std::cout << " (Current)"; }
     }
 }
-
+// Browse menu page
 void menu_item_browse ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom video list.
 
@@ -1270,7 +1259,7 @@ void menu_item_browse ( int w, int h ) {
         }
     }
 }
-
+// Main UI Function
 void draw_ui ( int w, int h ) {
 
     if ( current_menu == 0 ) { // 2 boxes on top of each other
@@ -1280,12 +1269,12 @@ void draw_ui ( int w, int h ) {
     }
 
 }
-
+// Capture Interrupt
 void capture_interrupt (int signum) {
     interrupt = true;
     collapse_threads = true;
 }
-
+// Main
 int main ( int argc, char *argv[] ) {
 
     signal (SIGINT, capture_interrupt);
