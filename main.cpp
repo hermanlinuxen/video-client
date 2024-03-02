@@ -1091,12 +1091,14 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             length = seconds_to_list_format(inv_videos_vector[video_vector_number.second].lengthseconds);
             released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
             views = abbreviated_number(inv_videos_vector[video_vector_number.second].viewcount);
+            if ( current_list_item == line + list_shift) {
+                current_selected_video = video_vector_number.second;
+            }
         } else {
             title = "Loading...";
         }
 
         if ( current_list_item == line + list_shift) {
-            current_selected_video = video_vector_number.second;
             printf("\033[%d;%dH", top_h + line, top_w - 2);
             std::cout << color_red << color_bold << "▶" << color_reset;
             printf("\033[%d;%dH", top_h + line, bot_w - 2);
@@ -1352,7 +1354,7 @@ void menu_item_browse ( int w, int h ) {
                 int popup_box_bot_w = w - horizontal_border - 5;
                 int popup_box_top_h = vertical_border + fixed_height + 3;
                 int popup_box_bot_h = h - vertical_border - 2;
-                draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, current_selected_video );
+                draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, popup_video_num );
             }
         } else {
             int list_top_w = 5;
