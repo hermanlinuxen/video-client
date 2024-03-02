@@ -70,6 +70,7 @@ bool quit = false;
 bool browse_opened = false;
 bool popup_box = false; 
 int current_list_item = 0;
+int current_selected_video = 0;
 int list_shift = 0;
 
 /*
@@ -113,7 +114,7 @@ const std::string color_cyan   = "\033[36m";
 const std::string color_gray   = "\033[90m";
 
 const std::string frame_title_color = color_green;
-const std::string frame_color = color_yellow;
+const std::string default_frame_color = color_yellow;
 
 // Input Parameter switches
 bool arg_verbose = false;
@@ -135,6 +136,7 @@ struct inv_videos{                      // invidious videos
     bool downloaded = false;            // if video is downloaded or not
     bool currently_downloading = false; // in video is currently downloading
     bool manual_update = false;         // if video has been manually updated
+    bool priority_update = false;       // if true, video will be picked first for information update
 };
 std::vector<inv_videos> inv_videos_vector;
 
@@ -174,11 +176,9 @@ Arguments:
 
     std::cout << usage_text << "\n";
 }
-
 int epoch () {
     return std::time(0);
 }
-
 bool create_folder ( const std::string& folderPath ) {
     if ( ! std::filesystem::exists(folderPath) ) {
         try {
@@ -192,7 +192,6 @@ bool create_folder ( const std::string& folderPath ) {
         return true;
     }
 }
-
 bool create_file ( const std::string& filePath ) {
     std::ifstream file(filePath);
     if ( ! file.good() ) {
@@ -207,7 +206,7 @@ bool create_file ( const std::string& filePath ) {
         return true;
     }
 }
-
+// To String conversions
 std::string to_string_bool ( bool boolean_in ) {
     std::string bool_str = boolean_in ? "true" : "false";
     return bool_str;
@@ -224,7 +223,17 @@ std::string to_string_char ( char char_in[] ) {
     std::string char_str( char_in );
     return char_str;
 }
-
+// check if file contains string
+bool find_string_in_file ( const std::string& filename, const std::string& content ) {
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line == content) {
+            return true; // String found in the file
+        }
+    }
+    return false; // String not found in the file
+}
 // append string to file
 int append_file ( const std::string& filename, const std::string& content, bool newline = false ) { // 0 = added, 1 = allready in file, 2 fail.
     if ( find_string_in_file(filename, content) ) {
@@ -286,17 +295,6 @@ void log ( std::string message, int severity = 0 ) {
         }
     }
     log_main(message, severity, log_to_file);
-}
-// check if file contains string
-bool find_string_in_file ( const std::string& filename, const std::string& content ) {
-    std::ifstream file(filename);
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line == content) {
-            return true; // String found in the file
-        }
-    }
-    return false; // String not found in the file
 }
 // remove line from file
 void remove_matching_lines ( const std::string& filename, const std::string& pattern ) {
@@ -417,6 +415,30 @@ std::pair<bool, int> get_videoid_from_vector ( std::string id ) {
             return std::make_pair(true, i);
         }
     }
+    return std::make_pair(false, 0);
+}
+// Get random instance
+std::pair<bool, int> get_random_instance () {
+    if ( inv_instances_vector.size() == 0 ) {
+        return std::make_pair(false, 0);
+    }
+    int instance_count = inv_instances_vector.size();
+    int current = random_number( 0, instance_count - 2 );
+    for ( int retry = 0; retry < instance_count; ++retry ) {
+        if ( current >= instance_count - 1 ) {
+            current = 0;
+        }
+        if ( inv_instances_vector[current].enabled ) {
+            if ( inv_instances_vector[current].api_enabled ) {
+                if ( ! inv_instances_vector[current].banned ) {
+                    log("Random Instance: " + inv_instances_vector[current].name);
+                    return std::make_pair(true, current);
+                }
+            }
+        }
+        ++current;
+    }
+    log("Found no appropriate instances!");
     return std::make_pair(false, 0);
 }
 // Write Callback
@@ -551,6 +573,46 @@ void update_instance_info (const int instance) {
     }
 
     inv_instances_vector[instance].updated = true;
+}
+// Update video Information
+void update_video_info ( const int videonum ) { // https://instance.name/api/v1/videos/aqz-KE-bpKQ?&fields=title,description,published,viewCount,author,authorId,lengthSeconds
+    std::string videoid = inv_videos_vector[videonum].URL;
+    log("Running update for video: " + videoid);
+    auto random_instance = get_random_instance();
+    if ( ! random_instance.first ) {
+        log("Unable to retrieve instance!", 4);
+        return;
+    }
+    std::string instance = inv_instances_vector[random_instance.second].name;
+    std::stringstream video_url;
+    video_url << "https://" << instance << "/api/v1/videos/" << videoid << "?&fields=title,description,published,viewCount,author,authorId,lengthSeconds";
+    auto result = fetch(video_url.str());
+    while ( true ) { // get json output
+        if ( result.first ) {
+            try {
+                json data = json::parse(result.second);
+                inv_videos_vector[videonum].title = data["title"].get<std::string>();
+                inv_videos_vector[videonum].description = data["description"].get<std::string>();
+                inv_videos_vector[videonum].published = data["published"].get<int>();
+                inv_videos_vector[videonum].viewcount = data["viewCount"].get<int>();
+                inv_videos_vector[videonum].author = data["author"].get<std::string>();
+                inv_videos_vector[videonum].author_id = data["authorId"].get<std::string>();
+                inv_videos_vector[videonum].lengthseconds = data["lengthSeconds"].get<int>();
+                inv_videos_vector[videonum].manual_update = true;
+                log("Video details updated for: " + inv_videos_vector[videonum].URL + " With Instance: " + instance);
+            } catch (const std::exception& e) {
+                std::stringstream parse_result;
+                parse_result << e.what();
+                log("Error parsing JSON: " + parse_result.str(), 2);
+            }
+        } else {
+            log("Curl is unable to contact instance's API: " + video_url.str(), 2);
+        }
+        random_instance = get_random_instance();
+        instance = inv_instances_vector[random_instance.second].name;
+        video_url << "https://" << instance << "/api/v1/videos/" << videoid << "?&fields=title,description,published,viewCount,author,authorId,lengthSeconds";
+        result = fetch(video_url.str());
+    }
 }
 // Update popular list
 bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/popular
@@ -873,7 +935,7 @@ void calculate_inputs () {
     }
 }
 // Draw frame for specific coordinates, with rounded corners and optional title.
-void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string title_str = "null" ) {
+void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type, std::string frame_color = default_frame_color, std::string title_str = "null" ) {
     /*
     Drawbox types: Why do i do this to myself.
         0) Default, no special corners / walls.
@@ -954,7 +1016,7 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         subtract = subtract + 1;
         m = m - subtract;
         printf("\033[%d;%dH", top_h, m);
-        std::cout << frame_color << "┨ " << frame_title_color << color_bold << title_str << frame_color << " ┠" << color_reset;
+        std::cout << frame_color << "┨ " << frame_title_color << color_bold << title_str << color_reset << frame_color << " ┠" << color_reset;
     }
 }
 // Draw popular videos list to screen
@@ -989,15 +1051,6 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         std::cout << color_cyan << scrollbar_character << color_reset;
     }
 
-    /*
-        What to display: ( . dot = whitespace)
-        Title - Should be 40 Characters. Colors: White normal, green downloaded, yellow downloading red failed download. Cutting required
-        Video Length - mm:ss, if 1+ Hour: 1H-12, 2H-36 etc. If 10+ Hours: 10 H
-        Creator - 20 Characters?. Cutting required
-        When video was released. Short: (4 Characters) ..1H, .14H, ..1D, 73D, 123D, ..3Y Long: (8 Characters) .45 Mins, ..1 Hour, 17 Hours, ...1 Day, .40 Days, 296 Days, ..1 Year, .4 Years
-        Views (10 Chars) Short (4): 127K, .15K, 266M, .138 Long: (10) 946K Views, .15K Views, ...1 View.
-        Star at the end for favorite. ✦
-    */
     int last_item = vec_browse_popular.size();
     int list_shown_item = 0;
     std::string title;
@@ -1043,6 +1096,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         }
 
         if ( current_list_item == line + list_shift) {
+            current_selected_video = video_vector_number.second;
             printf("\033[%d;%dH", top_h + line, top_w - 2);
             std::cout << color_red << color_bold << "▶" << color_reset;
             printf("\033[%d;%dH", top_h + line, bot_w - 2);
@@ -1082,43 +1136,22 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
 
 }
 // Draw popup video box for detailed information about video
-void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool title, std::string title_str, int video_num ) {
+void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool title, int video_num ) {
 
-    draw_box( top_w, top_h, bot_w, bot_h, true, 0, truncate(inv_videos_vector[video_num].title, bot_w - 10));
+    draw_box( top_w, top_h, bot_w, top_h + 9, true, 3, color_cyan, "Video Details");
 
-    /*
-        ToDo:
-        Details:
-        - video title
-        - creator
-        - creator subs amount ? Reuired additional API request for details.
-        - vid length
-        - vid views
-        - vid released date
-        - vid likes/like ratio
-
-        Bottom:
-        - Description
-        
-        If's:
-        - if downloaded
-        - if favorite
-        - if subscribed
-        - 
-
-        Options:
-		- Subscribe to channel
-		- Favorite video
-		- Download video
-		- Open Channel
-        - Open instance
-		- Play (If Downloaded)
-    */
+    draw_box( top_w, top_h + 9, bot_w, bot_h, true, 4, color_cyan, "Description");
 
     std::string video_title = inv_videos_vector[video_num].title;
     std::string video_author_name = inv_videos_vector[video_num].author;
     std::string video_author_id = inv_videos_vector[video_num].author_id;
+    std::string video_description;
 
+    int video_released = inv_videos_vector[video_num].published;
+    int video_views = inv_videos_vector[video_num].viewcount;
+    int video_length = inv_videos_vector[video_num].lengthseconds;
+
+    bool updated = inv_videos_vector[video_num].manual_update;
     bool downloaded = inv_videos_vector[video_num].downloaded;
     bool favorite = inv_videos_vector[video_num].favorite;
     bool subscribed = false;
@@ -1128,8 +1161,87 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
             subscribed = true;
         }
     }
-    
+    if ( ! updated ) {
+        inv_videos_vector[video_num].priority_update = true;
+        video_description = "Loading...";
+    } else {
+        video_description = inv_videos_vector[video_num].description;
+    }
 
+    // Show title:
+    int title_w = top_w + bot_w;
+    video_title = truncate(video_title, bot_w - top_w - 4);
+    int title_subtract = video_title.size();
+    int middle = title_w / 2;
+    title_subtract = title_subtract / 2;
+    middle = middle - title_subtract;
+    printf("\033[%d;%dH", top_h + 2, middle);
+    std::cout << color_blue << color_bold << video_title << color_reset;
+
+    int center = title_w / 2;
+    int from_middle = center / 6 + 3;
+    int left_row = center - from_middle + 1;
+    int right_row = center + from_middle + 1;
+
+    // Length
+    printf("\033[%d;%dH", top_h + 4, left_row - 8);
+    std::cout << "Length:";
+    printf("\033[%d;%dH", top_h + 4, left_row);
+    std::cout << seconds_to_list_format(video_length);
+
+    // Uploaded
+    printf("\033[%d;%dH", top_h + 4, right_row - 10);
+    std::cout << "Uploaded:";
+    printf("\033[%d;%dH", top_h + 4, right_row);
+    std::cout << uploaded_format(video_released);
+
+    // Subscribed
+    printf("\033[%d;%dH", top_h + 5, left_row - 12);
+    std::cout << "Subscribed:";
+    printf("\033[%d;%dH", top_h + 5, left_row);
+    if ( subscribed ) {
+        std::cout << "Yes";
+    } else {
+        std::cout << "No";
+    }
+
+    // Author
+    printf("\033[%d;%dH", top_h + 5, right_row - 8);
+    std::cout << "Author:";
+    printf("\033[%d;%dH", top_h + 5, right_row);
+    std::cout << video_author_name;
+
+    // Views
+    printf("\033[%d;%dH", top_h + 6, left_row - 7);
+    std::cout << "Views:";
+    printf("\033[%d;%dH", top_h + 6, left_row);
+    std::cout << abbreviated_number(video_views);
+
+    // ChannelID
+    printf("\033[%d;%dH", top_h + 6, right_row - 11);
+    std::cout << "ChannelID:";
+    printf("\033[%d;%dH", top_h + 6, right_row);
+    std::cout << video_author_id;
+
+    // Downloaded
+    printf("\033[%d;%dH", top_h + 7, left_row - 12);
+    std::cout << "Downloaded:";
+    printf("\033[%d;%dH", top_h + 7, left_row);
+    if ( downloaded ) {
+        std::cout << "Yes";
+    } else {
+        std::cout << "No";
+    }
+
+    // Favorite
+    printf("\033[%d;%dH", top_h + 7, right_row - 10);
+    std::cout << "Favorite:";
+    printf("\033[%d;%dH", top_h + 7, right_row);
+    if ( favorite ) {
+        std::cout << "Yes";
+    } else {
+        std::cout << "No";
+    }
 }
 // Main menu page
 void menu_item_main ( int w, int h ) {
@@ -1152,7 +1264,7 @@ void menu_item_main ( int w, int h ) {
     int box1_top_h = vertical_border + 1;
     int box1_bot_h = 1 - vertical_border + fixed_height;
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Main Menu" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, default_frame_color, "Main Menu" );
 
     if ( large_canvas ) { // 3 boxes, header main info and footer for small status details.
         int info_footer_height = 15;
@@ -1162,15 +1274,15 @@ void menu_item_main ( int w, int h ) {
         int large_box2_top_h = vertical_border + fixed_height + 1;
         int large_box2_bot_h = h - vertical_border - info_footer_height;
 
-        draw_box( large_box2_top_w, large_box2_top_h, large_box2_bot_w, large_box2_bot_h, false, 9 );
-        draw_box( large_box2_top_w, large_box2_bot_h, w - horizontal_border, h - vertical_border, false, 4 );
+        draw_box( large_box2_top_w, large_box2_top_h, large_box2_bot_w, large_box2_bot_h, false, 9, default_frame_color );
+        draw_box( large_box2_top_w, large_box2_bot_h, w - horizontal_border, h - vertical_border, false, 4, default_frame_color );
     } else { // 2 Boxes, top header and infobox under:
         int small_box2_top_w = horizontal_border + 1;
         int small_box2_bot_w = w - horizontal_border;
         int small_box2_top_h = vertical_border + fixed_height + 1;
         int small_box2_bot_h = h - vertical_border;
 
-        draw_box( small_box2_top_w, small_box2_top_h, small_box2_bot_w, small_box2_bot_h, false, 4 );
+        draw_box( small_box2_top_w, small_box2_top_h, small_box2_bot_w, small_box2_bot_h, false, 4, default_frame_color );
     }
     
     //Version number
@@ -1223,9 +1335,9 @@ void menu_item_browse ( int w, int h ) {
     int box2_top_h = vertical_border + fixed_height + 1;
     int box2_bot_h = h - vertical_border;
 
-    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, "Browse" );
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, default_frame_color, "Browse" );
 
-    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, "< " + browse_types[current_browse_type] + " >" );
+    draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, default_frame_color, "< " + browse_types[current_browse_type] + " >" );
 
     // Sats:
     printf("\033[%d;%dH", 2, 3 + 1);
@@ -1235,20 +1347,12 @@ void menu_item_browse ( int w, int h ) {
         if ( popup_box ) { // Popup popup for selected video
             if ( vec_browse_popular.size() == 0 ) { popup_box = false; update_ui = true; } else {
                 // Show popup box for video
-                std::string popup_video_id = vec_browse_popular[current_list_item];
-                auto popup_video_found = get_videoid_from_vector(popup_video_id);
-                if ( popup_video_found.first ) {
-                    int popup_video_num = popup_video_found.second;
-                    log("popup menu for video: " + inv_videos_vector[popup_video_num].title);
-                    
-                    int popup_box_top_w = horizontal_border + 4;
-                    int popup_box_bot_w = w - horizontal_border - 3;
-                    int popup_box_top_h = vertical_border + fixed_height + 3;
-                    int popup_box_bot_h = h - vertical_border - 2;
-
-                    // Missing popup_video_num
-                    draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, inv_videos_vector[popup_video_num].title, popup_video_num );
-                }
+                int popup_video_num = current_selected_video;
+                int popup_box_top_w = horizontal_border + 6;
+                int popup_box_bot_w = w - horizontal_border - 5;
+                int popup_box_top_h = vertical_border + fixed_height + 3;
+                int popup_box_bot_h = h - vertical_border - 2;
+                draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, current_selected_video );
             }
         } else {
             int list_top_w = 5;
@@ -1344,12 +1448,12 @@ int main ( int argc, char *argv[] ) {
     struct winsize size;
     int last_ui_update = 0;
 
-    std::cout << "\033c"; // Clear screen.
+    //std::cout << "\033c"; // Clear screen.
     std::cout << "\e[?25l"; // remove cursor
 
     std::thread input_thread(THREAD_input); // Start input thread
 
-    setvbuf(stdout, NULL, _IONBF, 0); // Disables buffering
+    //setvbuf(stdout, NULL, _IONBF, 0); // Disables buffering
 
     while ( true ) { // Main loop
 
@@ -1370,7 +1474,7 @@ int main ( int argc, char *argv[] ) {
             browse_opened = true;
         }
 
-        if ( epoch() > last_ui_update + 1 ) { // updates every 2 seconds.
+        if ( epoch() > last_ui_update + 9 ) { // updates every 10 seconds.
             update_ui = true;
             last_ui_update = epoch();
         }
@@ -1408,6 +1512,7 @@ int main ( int argc, char *argv[] ) {
             draw_ui(w, h);
 
             std::cout << "\e[?25l"; // remove cursor
+            fflush(stdout); // Flush STDOUT buffer
         }
         usleep(500);
     }
