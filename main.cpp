@@ -20,7 +20,6 @@ Resources
 #include <ctime>
 #include <bits/stdc++.h>
 #include <filesystem>
-#include <algorithm>
 
 // Curl
 #include <curl/curl.h>
@@ -128,6 +127,7 @@ struct inv_videos{                      // invidious videos
     int lengthseconds;                  // video Length in seconds
     int viewcount;                      // video views
     int downloaded_time = 0;            // epoch time when video was downloaded
+    int retry = 0;                      // Amount of retries done to calculate normal video or not.
     std::string title;                  // video title
     std::string author;                 // video creator
     std::string author_id;              // ID of video creator
@@ -137,6 +137,7 @@ struct inv_videos{                      // invidious videos
     bool currently_downloading = false; // in video is currently downloading
     bool manual_update = false;         // if video has been manually updated
     bool priority_update = false;       // if true, video will be picked first for information update
+    bool normal_video = true;           // if false, video is live, pre-live or other which breaks logic. Skip if false.
 };
 std::vector<inv_videos> inv_videos_vector;
 
@@ -161,7 +162,7 @@ std::vector<std::string> vec_browse_downloaded;         // VideoID's of download
 std::vector<std::string> vec_browse_favorites;          // VideoID's of favorites list sorted.
 
 std::vector<std::string> vec_global_banned_instances;   // All banned instances
-std::vector<std::string> vec_global_banned_channels;    // All bannen channels
+std::vector<std::string> vec_global_banned_channels;    // All banned channels
 
 std::vector<std::string> vec_subscribed_channels;       // Locally sourced list of subscribed channel ID's
 std::vector<std::string> vec_downloaded_videos;         // Locally sourced list of downloaded video ID's
@@ -431,6 +432,9 @@ void description ( int top_w, int top_h, int bot_w, int bot_h, std::string descr
                 printf("...");
                 break;
             }
+            if ( h >= bot_h ) {
+                break;
+            }
         }
         printf("\033[%d;%dH%c", h, w, c);
         ++w;
@@ -452,15 +456,19 @@ std::pair<bool, int> get_random_instance () {
     }
     int instance_count = inv_instances_vector.size();
     int current = random_number( 0, instance_count - 2 );
+    int instance_timeout = epoch() - 600;
     for ( int retry = 0; retry < instance_count; ++retry ) {
         if ( current >= instance_count - 1 ) {
             current = 0;
         }
-        if ( inv_instances_vector[current].enabled ) {
-            if ( inv_instances_vector[current].api_enabled ) {
-                if ( ! inv_instances_vector[current].banned ) {
-                    log("Random Instance: " + inv_instances_vector[current].name);
-                    return std::make_pair(true, current);
+        log("Instance timeout: " + to_string_int(inv_instances_vector[current].last_get) + " Timeout: " + to_string_int(instance_timeout));
+        if ( inv_instances_vector[current].last_get <= instance_timeout ) {
+            if ( inv_instances_vector[current].enabled ) {
+                if ( inv_instances_vector[current].api_enabled ) {
+                    if ( ! inv_instances_vector[current].banned ) {
+                        log("Random Instance: " + inv_instances_vector[current].name);
+                        return std::make_pair(true, current);
+                    }
                 }
             }
         }
@@ -481,6 +489,7 @@ std::pair<bool, std::string> fetch (const std::string& url) {
     CURLcode res;
     std::string output;
     bool success = false;
+    int timeout_seconds = 5;
 
     // init curl
     curl = curl_easy_init();
@@ -490,6 +499,8 @@ std::pair<bool, std::string> fetch (const std::string& url) {
         // Set callback
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+        // Timeout
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_seconds);
         // run request
         res = curl_easy_perform(curl);
         // Check for errors
@@ -548,7 +559,6 @@ void parse_instances(const json& data) { // receives instances json output, and 
             inv_instances_vector[inv_instances_vector_iteration].URL = uri;
             inv_instances_vector[inv_instances_vector_iteration].type = type;
             inv_instances_vector[inv_instances_vector_iteration].region = region;
-            inv_instances_vector[inv_instances_vector_iteration].last_get = epoch();
             if ( tmp_ratio_enabled ) {
                 inv_instances_vector[inv_instances_vector_iteration].health = tmp_ratio_int;
             } else {
@@ -619,19 +629,38 @@ void update_video_info ( const int videonum ) { // https://instance.name/api/v1/
         if ( result.first ) {
             try {
                 json data = json::parse(result.second);
-                inv_videos_vector[videonum].title = data["title"].get<std::string>();
-                inv_videos_vector[videonum].description = data["description"].get<std::string>();
-                inv_videos_vector[videonum].published = data["published"].get<int>();
-                inv_videos_vector[videonum].viewcount = data["viewCount"].get<int>();
-                inv_videos_vector[videonum].author = data["author"].get<std::string>();
-                inv_videos_vector[videonum].author_id = data["authorId"].get<std::string>();
-                inv_videos_vector[videonum].lengthseconds = data["lengthSeconds"].get<int>();
-                inv_videos_vector[videonum].manual_update = true;
-                log("Video details updated for: " + inv_videos_vector[videonum].URL + " With Instance: " + instance);
+
+                if ( data.contains("error") ) {
+                    std::string errorMessage = data["error"].get<std::string>();
+                    log("Video: " + videoid + " Returned Error: " + errorMessage, 2);
+                    if ( inv_videos_vector[videonum].retry >= 5 ) {
+                        inv_videos_vector[videonum].normal_video = false;
+                        log("Blacklisted video: " + videoid, 2);
+                        break;
+                    } else {
+                        ++inv_videos_vector[videonum].retry;
+                        log("Retrying video: " + videoid);
+                    }
+                } else {
+                    inv_videos_vector[videonum].title = data["title"].get<std::string>();
+                    inv_videos_vector[videonum].description = data["description"].get<std::string>();
+                    inv_videos_vector[videonum].published = data["published"].get<int>();
+                    inv_videos_vector[videonum].viewcount = data["viewCount"].get<int>();
+                    inv_videos_vector[videonum].author = data["author"].get<std::string>();
+                    inv_videos_vector[videonum].author_id = data["authorId"].get<std::string>();
+                    inv_videos_vector[videonum].lengthseconds = data["lengthSeconds"].get<int>();
+                    inv_videos_vector[videonum].manual_update = true;
+                    inv_videos_vector[videonum].priority_update = false;
+                    log("Video details updated for: " + inv_videos_vector[videonum].URL + " With Instance: " + instance, 1);
+                    if ( popup_box ) { if ( current_selected_video == videonum ) { update_ui = true; }}
+                    break;
+                }
             } catch (const std::exception& e) {
                 std::stringstream parse_result;
                 parse_result << e.what();
                 log("Error parsing JSON: " + parse_result.str(), 2);
+                inv_instances_vector[random_instance.second].last_get = epoch();
+                log("Disabling instance for 10 minutes: " + inv_instances_vector[random_instance.second].name);
             }
         } else {
             log("Curl is unable to contact instance's API: " + video_url.str(), 2);
@@ -640,6 +669,7 @@ void update_video_info ( const int videonum ) { // https://instance.name/api/v1/
         instance = inv_instances_vector[random_instance.second].name;
         video_url << "https://" << instance << "/api/v1/videos/" << videoid << "?&fields=title,description,published,viewCount,author,authorId,lengthSeconds";
         result = fetch(video_url.str());
+        video_url.str(std::string());
     }
 }
 // Update popular list
@@ -700,6 +730,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[end_of_list].published = published;
             inv_videos_vector[end_of_list].viewcount = viewcount;
         }
+        log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance].name);
         // Add to temporary vector
         vec_browse_popular_temp.push_back(videoid);
     }
@@ -768,7 +799,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
 }
 // Add key int to key list vector.
 void add_key_input ( int key = 0) {
-    if ( ! key == 0 ) {
+    if ( ! ( key == 0 )) {
         input_list.push_back(key);
     }
 }
@@ -776,12 +807,15 @@ void add_key_input ( int key = 0) {
 void THREAD_background_worker () {
 
     int last_update_instances;
+    int random_num;
+    bool one_video_updated;
 
     update_instances(); // Update local instances.
     last_update_instances = epoch();
     log("WRK_THR: Instances updated.");
 
     while ( true ) {
+        one_video_updated = false;
         if ( collapse_threads ) { break; }
         if ( inv_instances_vector.size() != 0 ) {
             // instances loaded
@@ -803,6 +837,15 @@ void THREAD_background_worker () {
                                 update_ui = true;
                                 log("Popular updated from instance: " + inv_instances_vector[i_instance].name + " refreshing this instance in 5-10 minutes");
                                 inv_instances_vector[i_instance].last_update_popular = epoch() + random_number(0, 300); // Add random delay to update cycle
+                                for ( int banned_video_i = 0; banned_video_i < inv_videos_vector.size(); ++banned_video_i ) {
+                                    if ( ! inv_videos_vector[banned_video_i].normal_video ) {
+                                        for ( int banned_popular_i = 0; banned_popular_i < vec_browse_popular.size(); ++banned_popular_i ) {
+                                            if ( inv_videos_vector[banned_video_i].URL == vec_browse_popular[banned_popular_i] ) {
+                                                vec_browse_popular.erase(vec_browse_popular.begin() + banned_popular_i); // Remove banned videos from popular list.
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 log("Popular update failed for instance, waiting 10-20 minutes: " + inv_instances_vector[i_instance].name);
                                 inv_instances_vector[i_instance].last_update_popular = epoch() + random_number(600, 1200); // Add 10-20 minutes until next check.
@@ -811,17 +854,40 @@ void THREAD_background_worker () {
                     }
                 }
             }
-
-        // ToDo: For each loop, walk trough 1 video at a time, to update any possibly missing information.
-        // Check manual_update key
-        // Known missing: Description. Check API for other values: https://docs.invidious.io/api/#get-apiv1videosid
+            if ( ! ( inv_videos_vector.size() == 0 )) {
+                for ( int video_priority_update_iteration = 0; video_priority_update_iteration < inv_videos_vector.size(); ++video_priority_update_iteration ) {
+                    if (( inv_videos_vector[video_priority_update_iteration].priority_update ) && ( inv_videos_vector[video_priority_update_iteration].normal_video )) {
+                        update_video_info(video_priority_update_iteration);
+                        one_video_updated = true;
+                        break;
+                    }
+                }
+                if ( ! one_video_updated ) {
+                    random_num = random_number(0 , inv_videos_vector.size() - 1);
+                    int video_update_iteration_tmp;
+                    for ( int video_update_iteration = 0; video_update_iteration < inv_videos_vector.size(); ++video_update_iteration ) {
+                        video_update_iteration_tmp = video_update_iteration + random_num;
+                        if ( video_update_iteration_tmp >= inv_videos_vector.size() ) {
+                            video_update_iteration_tmp = video_update_iteration_tmp - inv_videos_vector.size();
+                        }
+                        if (( ! inv_videos_vector[video_update_iteration_tmp].manual_update ) && ( inv_videos_vector[video_update_iteration_tmp].normal_video )) {
+                            update_video_info(video_update_iteration_tmp);
+                            one_video_updated = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if ( ! one_video_updated ) {
+                log("WRK_THR: All cached videos are up to date.");
+            }
 
         } else { // Attempt again after 10 seconds.
             log("WRK_THR: Unable to update local instances.", 4);
             usleep(60000000); // 60s
             update_instances();
         }
-        usleep(100000); // 0.1s sleep
+        usleep(1000000); // 1s sleep
     }
 }
 // Input thread keeping track of inputs, and adding to queue.
@@ -864,7 +930,7 @@ void calculate_inputs () {
         }
     }
 
-    if ( ! input_list.size() == 0 ) {
+    if ( ! ( input_list.size() == 0 )) {
 
         //log("Items in input vector: " + to_string_int(input_list.size()));
 
@@ -873,7 +939,6 @@ void calculate_inputs () {
         int key_arrow_type = 0; // Type of arrow key. 0-Null, 1-UP, 2-Down, 3-Left, 4-Right
 
         for (unsigned i=0; i<input_list.size(); i++) { // Main check loop.
-            log("Processing keypress: " + to_string_int(i));
             if ( input_list.size() == 3 ) { // Check if arrow keys.l
                 if ( input_list[i] == 27 ){
                     i++;
@@ -911,7 +976,6 @@ void calculate_inputs () {
                 }
             }
             else if ( key_arrow_type != 0 ) { // alternate approach? if menu = x -> if key = up etc.
-                log("Running arrow key: " + to_string_int(key_arrow_type));
                 if ( key_arrow_type == 1 ) { // Up
                     if ( current_menu == 1 ) {
                         if ( ! popup_box ) {
@@ -945,7 +1009,7 @@ void calculate_inputs () {
 
                 } else if ( key_arrow_type == 4 ) { // Right
                     if ( current_menu == 1 ) {
-                        if ( ! current_browse_type < 1 ) {
+                        if ( ! ( current_browse_type < 1 )) {
                             if ( ! popup_box ) {
                                 --current_browse_type;
                                 current_list_item = 0;
@@ -1192,7 +1256,9 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
         }
     }
     if ( ! updated ) {
-        inv_videos_vector[video_num].priority_update = true;
+        if ( ! inv_videos_vector[video_num].priority_update ) {
+            inv_videos_vector[video_num].priority_update = true;
+        }
         video_description = "Loading...";
     } else {
         video_description = inv_videos_vector[video_num].description;
@@ -1272,6 +1338,9 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
     } else {
         std::cout << "No";
     }
+
+    // description
+    description( top_w + 2, top_h + 10, bot_w - 2, bot_h, video_description );
 }
 // Main menu page
 void menu_item_main ( int w, int h ) {
