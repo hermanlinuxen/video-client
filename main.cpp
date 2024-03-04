@@ -408,6 +408,34 @@ std::string truncate(const std::string& input, int max) {
         return input.substr(0, max - 3) + "...";
     }
 }
+// Draw description
+void description ( int top_w, int top_h, int bot_w, int bot_h, std::string description ) {
+    int w = top_w;
+    int h = top_h;
+    char escape_newline = '\n';
+    for(char& c : description) { // loops over all characters in string
+        if ( c == escape_newline ) {
+            ++h;
+            w = top_w;
+            continue;
+        }
+        if ( w >= bot_w ) {
+            ++h;
+            w = top_w;
+            if ( h >= bot_h ) {
+                break;
+            }
+        }
+        if ( h >= bot_h - 1 ) {
+            if ( w >= bot_w - 3 ) {
+                printf("...");
+                break;
+            }
+        }
+        printf("\033[%d;%dH%c", h, w, c);
+        ++w;
+    }
+}
 // Get videoid from main video vector
 std::pair<bool, int> get_videoid_from_vector ( std::string id ) {
     for ( int i = 0; i < inv_videos_vector.size(); ++i ) {
@@ -1195,7 +1223,7 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
     printf("\033[%d;%dH", top_h + 4, right_row - 10);
     std::cout << "Uploaded:";
     printf("\033[%d;%dH", top_h + 4, right_row);
-    std::cout << uploaded_format(video_released);
+    std::cout << uploaded_format(epoch() - video_released);
 
     // Subscribed
     printf("\033[%d;%dH", top_h + 5, left_row - 12);
