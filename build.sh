@@ -1,6 +1,6 @@
 #!/bin/bash
 
-outfile=$1
+outfile=video-client
 opts='-lcurl'
 
 if [ ! $outfile ]; then echo "No outfile provided..."; exit 1; fi
