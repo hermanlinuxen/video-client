@@ -157,6 +157,14 @@ struct inv_instances{
 };
 std::vector<inv_instances> inv_instances_vector;
 
+struct inv_channels{
+    std::string id;
+    std::string name;
+    int last_updated = 0;
+    bool banned = false;
+};
+std::vector<inv_channels> inv_channels_vector;
+
 std::vector<std::string> vec_browse_popular;            // VideoID's of popular list sorted.
 std::vector<std::string> vec_browse_subscriptions;      // VideoID's of subscribed list sorted.
 std::vector<std::string> vec_browse_downloaded;         // VideoID's of downloads list sorted.
@@ -462,12 +470,10 @@ std::pair<bool, int> get_random_instance () {
         if ( current >= instance_count - 1 ) {
             current = 0;
         }
-        log("Instance timeout: " + to_string_int(inv_instances_vector[current].last_get) + " Timeout: " + to_string_int(instance_timeout));
         if ( inv_instances_vector[current].last_get <= instance_timeout ) {
             if ( inv_instances_vector[current].enabled ) {
                 if ( inv_instances_vector[current].api_enabled ) {
                     if ( ! inv_instances_vector[current].banned ) {
-                        log("Random Instance: " + inv_instances_vector[current].name);
                         return std::make_pair(true, current);
                     }
                 }
@@ -673,6 +679,50 @@ void update_video_info ( const int videonum ) { // https://instance.name/api/v1/
         video_url.str(std::string());
     }
 }
+// Sort videos in input vector by published date
+std::vector<std::string> sort_videos ( std::vector<std::string> unsorted ) {
+    
+    std::vector<std::string> sorted;
+
+    int sort_count = unsorted.size();
+
+    int largest = 0;
+    int winner;
+    int epoch_release;
+    int id;
+    bool skip;
+
+    for ( int sort_i = 0; sort_i < sort_count; ++sort_i ) {
+        // Add largest epoch found to first available element in vec_browse_popular_sorted, and remove it from temp vector.
+        largest = 0;
+        winner = 0;
+
+        for ( int current_i = 0; current_i < unsorted.size(); ++current_i ) {
+            skip = false;
+            for ( int used_i = 0; used_i < sorted.size(); ++used_i ) { // check if current has been used.
+                if ( sorted[used_i] == unsorted[current_i] ) {
+                    skip = true;
+                }
+            }
+            if ( skip ) {
+                continue;
+            }
+            auto id_result = get_videoid_from_vector(unsorted[current_i]);
+            if ( ! id_result.first ) {
+                log("VideoID missing from main list: " + unsorted[current_i], 4);
+                continue;
+            }
+            epoch_release = inv_videos_vector[id_result.second].published;
+            if ( epoch_release > largest ) {
+                largest = epoch_release;
+                winner = current_i;
+            }
+        }
+        // Add largest to sorted list
+        sorted.push_back(unsorted[winner]);
+    }
+    return sorted;
+}
 // Update popular list
 bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/popular
     json data;
@@ -754,48 +804,122 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
 
     std::vector<std::string> vec_browse_popular_sorted; // init temporary sorted vector, sorted largest numbers first
 
-    // vec_browse_popular_temp contains all videoIDs needed to sort.
-    int sort_count = vec_browse_popular_temp.size();
+    vec_browse_popular_sorted = sort_videos(vec_browse_popular_temp); // Sort temp by released date and add to sorted
 
-    int largest = 0;
-    int winner;
-    int epoch_release;
-    int id;
-    bool skip;
-
-    for ( int sort_i = 0; sort_i < sort_count; ++sort_i ) {
-        // Add largest epoch found to first available element in vec_browse_popular_sorted, and remove it from temp vector.
-        largest = 0;
-        winner = 0;
-
-        for ( int current_i = 0; current_i < vec_browse_popular_temp.size(); ++current_i ) {
-            skip = false;
-            for ( int used_i = 0; used_i < vec_browse_popular_sorted.size(); ++used_i ) { // check if current has been used.
-                if ( vec_browse_popular_sorted[used_i] == vec_browse_popular_temp[current_i] ) {
-                    skip = true;
-                }
-            }
-            if ( skip ) {
-                continue;
-            }
-            auto id_result = get_videoid_from_vector(vec_browse_popular_temp[current_i]);
-            if ( ! id_result.first ) {
-                log("VideoID missing from main list" + vec_browse_popular_temp[current_i], 4);
-                continue;
-            }
-            epoch_release = inv_videos_vector[id_result.second].published;
-            if ( epoch_release > largest ) {
-                largest = epoch_release;
-                winner = current_i;
-            }
-        }
-        // Add largest to sorted list
-        vec_browse_popular_sorted.push_back(vec_browse_popular_temp[winner]);
-    }
-    vec_browse_popular.clear();
-    for ( int add_i = 0; add_i < vec_browse_popular_sorted.size(); ++add_i ) {
+    vec_browse_popular.clear(); // clear main vector list
+    for ( int add_i = 0; add_i < vec_browse_popular_sorted.size(); ++add_i ) { // add combined and sorted vector list for popular
         vec_browse_popular.push_back(vec_browse_popular_sorted[add_i]);
     }
+    return true;
+}
+// Update subscriptions list for 1 channel
+bool update_browse_subscriptions () { // https://instancename/api/v1/channels/channelid/latest
+
+    int channel_num;
+    int update_timeout = 600;
+    bool got_channel;
+
+    for ( int channel_i = 0; channel_i < inv_channels_vector.size(); ++channel_i ) {
+        if ( inv_channels_vector[channel_i].last_updated == 0 ) {
+            got_channel = true;
+        } else if ( epoch() > inv_channels_vector[channel_i].last_updated + update_timeout ) {
+            got_channel = true;
+        }
+        if ( got_channel ) {
+            if ( ! inv_channels_vector[channel_i].banned ) {
+                channel_num = channel_i;
+                break;
+            }
+            got_channel = false;
+        }
+    }
+
+    if ( ! got_channel ) {
+        log("All channel subscriptions updated!");
+        return true;
+    }
+    log("Updating subscriptions from channel: " + inv_channels_vector[channel_num].id);
+
+    json data;
+    std::stringstream url;
+    auto instance = get_random_instance();
+    if ( ! instance.first ) {
+        log("Unable to retrieve random instance", 3);
+        return false;
+    }
+    url << "https://" << inv_instances_vector[instance.second].name << "/api/v1/channels/" << inv_channels_vector[channel_num].id << "/latest";
+    std::string url_string = url.str();
+    auto result = fetch(url_string);
+    if ( result.first ) {
+        try {
+            data = json::parse(result.second);
+        } catch (const std::exception& e) {
+            std::stringstream parse_result;
+            parse_result << e.what();
+            log("Error parsing JSON: " + parse_result.str(), 3);
+            return false;
+        }
+    } else {
+        log("Curl is unable to contact API: " + url_string, 3);
+        return false;
+    }
+    // parse json output for videos, update or add them to main video cache
+    for (const auto& video : data["videos"]) {
+        if (( video["liveNow"] == true ) || ( video["premium"] == true ) || ( video["isUpcoming"] == true )) {
+            log("Skipping unsupported video. Live, premium or upcoming.");
+            break;
+        }
+
+        std::string videoid =   video["videoId"];
+        std::string title =     video["title"];
+        int length =            video["lengthSeconds"];
+        int published =         video["published"];
+        int viewcount =         video["viewCount"];
+        std::string author =    video["author"];
+        std::string author_id = video["authorId"];
+
+        auto video_in_list = get_videoid_from_vector(videoid);
+        int end_of_list = inv_videos_vector.size();
+
+        if ( video_in_list.first ) {
+            int video = video_in_list.second;
+            inv_videos_vector[video].title = title;
+            inv_videos_vector[video].author = author;
+            inv_videos_vector[video].author_id = author_id;
+            inv_videos_vector[video].lengthseconds = length;
+            inv_videos_vector[video].published = published;
+            inv_videos_vector[video].viewcount = viewcount;
+        } else {
+            inv_videos_vector.push_back(inv_videos());
+            inv_videos_vector[end_of_list].URL = videoid;
+            inv_videos_vector[end_of_list].title = title;
+            inv_videos_vector[end_of_list].author = author;
+            inv_videos_vector[end_of_list].author_id = author_id;
+            inv_videos_vector[end_of_list].lengthseconds = length;
+            inv_videos_vector[end_of_list].published = published;
+            inv_videos_vector[end_of_list].viewcount = viewcount;
+        }
+        log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance.second].name);
+    }
+    if ( vec_subscribed_channels.size() == 0 ) {
+        log("No subscriptions...");
+        return true;
+    }
+    std::vector<std::string> vec_browse_subscriptions_temp;
+    for ( int video_i = 0; video_i < inv_videos_vector.size(); ++video_i ) {
+        for ( int sub_i = 0; sub_i < vec_subscribed_channels.size(); ++sub_i ) {
+            if ( inv_videos_vector[video_i].author_id == vec_subscribed_channels[sub_i] ) {
+                vec_browse_subscriptions_temp.push_back(inv_videos_vector[video_i].URL);
+            }
+        }
+    }
+    std::vector<std::string> vec_browse_subscriptions_sorted = sort_videos(vec_browse_subscriptions_temp);
+
+    vec_browse_subscriptions.clear(); // clear main vector list
+    for ( int add_i = 0; add_i < vec_browse_subscriptions_sorted.size(); ++add_i ) { // add combined and sorted vector list for popular
+        vec_browse_subscriptions.push_back(vec_browse_subscriptions_sorted[add_i]);
+    }
+
     return true;
 }
 // Add key int to key list vector.
@@ -856,6 +980,28 @@ void THREAD_background_worker () {
                     }
                 }
             }
+            if ( inv_channels_vector.size() < vec_subscribed_channels.size() ) {
+                for ( int channel_i2 = 0; channel_i2 < vec_subscribed_channels.size(); ++channel_i2 ) {
+                    bool channel_in_list = false;
+                    for ( int channel_i = 0; channel_i < inv_channels_vector.size(); ++channel_i ) {
+                        if ( inv_channels_vector[channel_i].id == vec_subscribed_channels[channel_i2] ) {
+                            channel_in_list = true;
+                            break;
+                        }
+                    }
+                    if ( ! channel_in_list ) {
+                        int end_of_list = inv_channels_vector.size();
+                        inv_channels_vector.push_back(inv_channels());
+                        inv_channels_vector[end_of_list].id = vec_subscribed_channels[channel_i2];
+                        inv_channels_vector[end_of_list].last_updated = 0;
+                        inv_channels_vector[end_of_list].banned = false;
+                        inv_channels_vector[end_of_list].name = "null";
+                    }
+                }
+            }
+            if ( ! ( inv_channels_vector.size() == 0 )) {
+                update_browse_subscriptions();
+            }
             if ( ! ( inv_videos_vector.size() == 0 )) {
                 for ( int video_priority_update_iteration = 0; video_priority_update_iteration < inv_videos_vector.size(); ++video_priority_update_iteration ) {
                     if (( inv_videos_vector[video_priority_update_iteration].priority_update ) && ( inv_videos_vector[video_priority_update_iteration].normal_video )) {
@@ -880,10 +1026,6 @@ void THREAD_background_worker () {
                     }
                 }
             }
-            if ( ! one_video_updated ) {
-                log("WRK_THR: All cached videos are up to date.");
-            }
-
         } else { // Attempt again after 10 seconds.
             log("WRK_THR: Unable to update local instances.", 4);
             usleep(60000000); // 60s
