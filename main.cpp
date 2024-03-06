@@ -369,24 +369,28 @@ std::string seconds_to_list_format ( int seconds ) {
     return result;
 }
 // Converts seconds to time since upload format
-std::string uploaded_format(int seconds) {
-    std::pair<std::string, int> intervals[] = {
-        {"s", 60},
-        {"m", 60},
-        {"h", 24},
-        {"d", 30},
-        {"y", 12}
-    };
-    int result = seconds;
-    std::string unit = "s";
-    for (const auto& interval : intervals) {
-        if (result < interval.second) {
-            return std::to_string(result) + unit;
-        }
-        result /= interval.second;
-        unit = interval.first;
+std::string uploaded_format ( int seconds ) {
+    std::string unit;
+    int result;
+    if ( seconds > 31536000 ) {
+        result = seconds / 31536000;
+        unit = "y";
+    } else if ( seconds > 86400 ) {
+        result = seconds / 86400;
+        unit = "d";
+    } else if ( seconds > 3600 ) {
+        result = seconds / 3600;
+        unit = "h";
+    } else if ( seconds > 60 ) {
+        result = seconds / 60;
+        unit = "m";
+    } else {
+        result = seconds;
+        unit = "s";
     }
-    return std::to_string(result) + "y";
+    std::stringstream formatted_result;
+    formatted_result << result << unit;
+    return formatted_result.str();
 }
 // Views int to abbreviated number, Ex. 154K views
 std::string abbreviated_number(int num) {
@@ -813,7 +817,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
     return true;
 }
 // Update subscriptions list for 1 channel
-bool update_browse_subscriptions () { // https://instancename/api/v1/channels/channelid/latest
+bool update_browse_subscriptions () { // https://instancename/api/v1/channels/channelid/videos
 
     int channel_num;
     int update_timeout = 600;
@@ -847,7 +851,7 @@ bool update_browse_subscriptions () { // https://instancename/api/v1/channels/ch
         log("Unable to retrieve random instance", 3);
         return false;
     }
-    url << "https://" << inv_instances_vector[instance.second].name << "/api/v1/channels/" << inv_channels_vector[channel_num].id << "/latest";
+    url << "https://" << inv_instances_vector[instance.second].name << "/api/v1/channels/" << inv_channels_vector[channel_num].id << "/videos";
     std::string url_string = url.str();
     auto result = fetch(url_string);
     if ( result.first ) {
@@ -999,6 +1003,7 @@ void THREAD_background_worker () {
                     }
                 }
             }
+            if ()
             if ( ! ( inv_channels_vector.size() == 0 )) {
                 update_browse_subscriptions();
             }
@@ -1134,6 +1139,9 @@ void calculate_inputs () {
                         if ( current_browse_type == 0 ) {
                             list_item_limit = vec_browse_popular.size() - 1;
                         }
+                        if ( current_browse_type == 1 ) {
+                            list_item_limit = vec_browse_subscriptions.size() - 1;
+                        }
                         if ( ! popup_box ) {
                             if ( current_list_item < list_item_limit ) {
                                 ++current_list_item;
@@ -1157,6 +1165,35 @@ void calculate_inputs () {
                             if ( ! popup_box ) {
                                 --current_browse_type;
                                 current_list_item = 0;
+                            }
+                        }
+                    }
+                }
+            }
+            else if ( input_list[i] == 102 ) {
+                if ( current_menu == 1 ) {
+                    if ( current_browse_type == 0 ) {
+                        if ( vec_browse_popular.size() != 0 ) {
+                            if ( inv_videos_vector[current_selected_video].favorite ) {
+                                remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
+                                inv_videos_vector[current_selected_video].favorite = false;
+                                log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                            } else {
+                                append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
+                                inv_videos_vector[current_selected_video].favorite = true;
+                                log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
+                            }
+                        }
+                    } else if ( current_browse_type == 1 ) {
+                        if ( vec_browse_subscriptions.size() != 0 ) {
+                            if ( inv_videos_vector[current_selected_video].favorite ) {
+                                remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
+                                inv_videos_vector[current_selected_video].favorite = false;
+                                log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                            } else {
+                                append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
+                                inv_videos_vector[current_selected_video].favorite = true;
+                                log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
                             }
                         }
                     }
