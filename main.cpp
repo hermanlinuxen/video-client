@@ -133,6 +133,7 @@ struct inv_videos{                      // invidious videos
     std::string author;                 // video creator
     std::string author_id;              // ID of video creator
     std::string description;            // video description.
+    std::string from_instance;          // Last instance video was gathered from.
     bool favorite = false;              // if video is favorite
     bool downloaded = false;            // if video is downloaded or not
     bool currently_downloading = false; // in video is currently downloading
@@ -821,7 +822,7 @@ bool update_browse_subscriptions () { // https://instancename/api/v1/channels/ch
 
     int channel_num;
     int update_timeout = 600;
-    bool got_channel;
+    bool got_channel = false;
 
     for ( int channel_i = 0; channel_i < inv_channels_vector.size(); ++channel_i ) {
         if ( inv_channels_vector[channel_i].last_updated == 0 ) {
@@ -904,6 +905,7 @@ bool update_browse_subscriptions () { // https://instancename/api/v1/channels/ch
             inv_videos_vector[end_of_list].viewcount = viewcount;
         }
         log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance.second].name);
+        inv_channels_vector[channel_num].last_updated = epoch();
     }
     if ( vec_subscribed_channels.size() == 0 ) {
         log("No subscriptions...");
@@ -1003,11 +1005,22 @@ void THREAD_background_worker () {
                     }
                 }
             }
-            if ()
             if ( ! ( inv_channels_vector.size() == 0 )) {
                 update_browse_subscriptions();
             }
             if ( ! ( inv_videos_vector.size() == 0 )) {
+
+                for ( int video_update_iteration = 0; video_update_iteration < inv_videos_vector.size(); ++video_update_iteration ) {
+                    // For loop over each video in video cache
+                    for ( int video_update_iteration_favorite = 0; video_update_iteration_favorite < vec_favorited_videos.size(); ++video_update_iteration_favorite ) {
+                        if ( inv_videos_vector[video_update_iteration].URL == vec_favorited_videos[video_update_iteration_favorite] ) {
+                            if ( ! inv_videos_vector[video_update_iteration].favorite ) {
+                                inv_videos_vector[video_update_iteration].favorite = true;
+                            }
+                        }
+                    }
+                }
+
                 for ( int video_priority_update_iteration = 0; video_priority_update_iteration < inv_videos_vector.size(); ++video_priority_update_iteration ) {
                     if (( inv_videos_vector[video_priority_update_iteration].priority_update ) && ( inv_videos_vector[video_priority_update_iteration].normal_video )) {
                         update_video_info(video_priority_update_iteration);
@@ -1170,7 +1183,7 @@ void calculate_inputs () {
                     }
                 }
             }
-            else if ( input_list[i] == 102 ) {
+            else if ( input_list[i] == 102 ) { // F - Favorite
                 if ( current_menu == 1 ) {
                     if ( current_browse_type == 0 ) {
                         if ( vec_browse_popular.size() != 0 ) {
@@ -1178,10 +1191,16 @@ void calculate_inputs () {
                                 remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
                                 inv_videos_vector[current_selected_video].favorite = false;
                                 log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                                for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
+                                    if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
+                                        vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                                    }
+                                }
                             } else {
                                 append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
                                 inv_videos_vector[current_selected_video].favorite = true;
                                 log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
+                                vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
                             }
                         }
                     } else if ( current_browse_type == 1 ) {
@@ -1190,12 +1209,55 @@ void calculate_inputs () {
                                 remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
                                 inv_videos_vector[current_selected_video].favorite = false;
                                 log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                                for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
+                                    if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
+                                        vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                                    }
+                                }
                             } else {
                                 append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
                                 inv_videos_vector[current_selected_video].favorite = true;
                                 log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
+                                vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
                             }
                         }
+                    }
+                }
+            }
+            else if ( input_list[i] == 115 ) { // S - Subscribe, only works within detailed popup view.
+                if ( current_menu == 1 ) {
+                    if ( popup_box ) {
+                        bool channel_subscribed = false;
+                        int channel_subscribed_id;
+                        for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
+                            if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
+                                channel_subscribed = true;
+                                channel_subscribed_id = check_subscribe_iteration;
+                                break;
+                            }
+                        }
+                        if ( channel_subscribed ) {
+                            remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
+                            log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
+                            vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
+                        } else {
+                            append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id);
+                            log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
+                            vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
+                        }
+                    }
+                }
+            }
+            else if ( input_list[i] == 114 ) { // R - Reset current list / refresh
+                if ( current_menu == 1 ) {
+                    if ( popup_box ) {
+                        inv_videos_vector[current_selected_video].priority_update = true;
+                    } else if ( current_browse_type == 0 ) { // popular
+                        current_list_item = 0;
+                        vec_browse_popular.clear();
+                    } else if ( current_browse_type == 1 ) { // subscriptions
+                        current_list_item = 0;
+                        vec_browse_subscriptions.clear();
                     }
                 }
             }
