@@ -133,13 +133,14 @@ struct inv_videos{                      // invidious videos
     std::string author;                 // video creator
     std::string author_id;              // ID of video creator
     std::string description;            // video description.
-    std::string from_instance;          // Last instance video was gathered from.
+    std::string from_instance;          // first instance video was gathered from.
     bool favorite = false;              // if video is favorite
     bool downloaded = false;            // if video is downloaded or not
     bool currently_downloading = false; // in video is currently downloading
     bool manual_update = false;         // if video has been manually updated
     bool priority_update = false;       // if true, video will be picked first for information update
     bool normal_video = true;           // if false, video is live, pre-live or other which breaks logic. Skip if false.
+    bool from_multiple_instances = false;// if video is found in 2 or more instances
 };
 std::vector<inv_videos> inv_videos_vector;
 
@@ -776,6 +777,11 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[video].lengthseconds = length;
             inv_videos_vector[video].published = published;
             inv_videos_vector[video].viewcount = viewcount;
+            if ( ! inv_videos_vector[video].from_multiple_instances ) {
+                if ( inv_instances_vector[instance].name != inv_videos_vector[video].from_instance ) {
+                    inv_videos_vector[video].from_multiple_instances = true;
+                }
+            }
         } else {
             inv_videos_vector.push_back(inv_videos());
             inv_videos_vector[end_of_list].URL = videoid;
@@ -785,6 +791,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[end_of_list].lengthseconds = length;
             inv_videos_vector[end_of_list].published = published;
             inv_videos_vector[end_of_list].viewcount = viewcount;
+            inv_videos_vector[end_of_list].from_instance = inv_instances_vector[instance].name;
         }
         log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance].name);
         // Add to temporary vector
@@ -905,8 +912,9 @@ bool update_browse_subscriptions () { // https://instancename/api/v1/channels/ch
             inv_videos_vector[end_of_list].viewcount = viewcount;
         }
         log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance.second].name);
-        inv_channels_vector[channel_num].last_updated = epoch();
     }
+    inv_channels_vector[channel_num].last_updated = epoch(); // Add timeout or update last updated field for channel.
+    log("Channel: " + inv_channels_vector[channel_num].id + " timeout: " + to_string_int(inv_channels_vector[channel_num].last_updated)); // log channel and timeout / epoch
     if ( vec_subscribed_channels.size() == 0 ) {
         log("No subscriptions...");
         return true;
@@ -1234,7 +1242,7 @@ void calculate_inputs () {
                                 channel_subscribed = true;
                                 channel_subscribed_id = check_subscribe_iteration;
                                 break;
-                            }
+                            } 
                         }
                         if ( channel_subscribed ) {
                             remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
@@ -1255,9 +1263,19 @@ void calculate_inputs () {
                     } else if ( current_browse_type == 0 ) { // popular
                         current_list_item = 0;
                         vec_browse_popular.clear();
+                        for ( int i = 0; i < inv_instances_vector.size(); ++i ) { // Reset popular instance refresh timeout
+                            if (( inv_instances_vector[i].enabled && inv_instances_vector[i].api_enabled ) && ( inv_instances_vector[i].banned == false )) {
+                                inv_instances_vector[i].last_update_popular = epoch() + 301;
+                            }
+                        }
                     } else if ( current_browse_type == 1 ) { // subscriptions
                         current_list_item = 0;
                         vec_browse_subscriptions.clear();
+                        for ( int i = 0; i < inv_channels_vector.size(); ++i ) {
+                            if ( ! inv_channels_vector[i].banned ) {
+                                inv_channels_vector[i].last_updated = 0;
+                            }
+                        }
                     }
                 }
             }
@@ -1803,7 +1821,11 @@ void menu_item_browse ( int w, int h ) {
 
     // Sats:
     printf("\033[%d;%dH", 2, 3 + 1);
-    std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
+    if ( current_browse_type == 0 ) {
+        std::cout << current_list_item + 1 << " / " << vec_browse_popular.size() << " Videos";
+    } else if ( current_browse_type == 1 ) {
+        std::cout << current_list_item + 1 << " / " << vec_browse_subscriptions.size() << " Videos";
+    }
 
     if ( popup_box ) { // Popup popup for selected video
         if ( vec_browse_popular.size() == 0 ) { popup_box = false; update_ui = true; } else {
@@ -1901,11 +1923,11 @@ int main ( int argc, char *argv[] ) {
     std::ifstream config_file_subscriptions_file(config_file_subscriptions);
     std::ifstream config_file_downloads_file(config_file_downloads);
     std::ifstream config_file_favorites_file(config_file_favorites);
-    while (std::getline(config_file_banned_channels_file, line)) { log("Adding banned channel: " + line); vec_global_banned_channels.push_back(line); }
-    while (std::getline(config_file_banned_instances_file, line)) { log("Adding banned instance: " + line); vec_global_banned_instances.push_back(line); }
-    while (std::getline(config_file_subscriptions_file, line)) { log("Adding subscriptions: " + line); vec_subscribed_channels.push_back(line); }
-    while (std::getline(config_file_downloads_file, line)) { log("Adding downloads: " + line); vec_downloaded_videos.push_back(line); }
-    while (std::getline(config_file_favorites_file, line)) { log("Adding favorites: " + line); vec_favorited_videos.push_back(line); }
+    while (std::getline(config_file_banned_channels_file, line)) { log("Loading banned channel from file: " + line); vec_global_banned_channels.push_back(line); }
+    while (std::getline(config_file_banned_instances_file, line)) { log("Loading banned instance from file: " + line); vec_global_banned_instances.push_back(line); }
+    while (std::getline(config_file_subscriptions_file, line)) { log("Loading subscriptions from file: " + line); vec_subscribed_channels.push_back(line); }
+    while (std::getline(config_file_downloads_file, line)) { log("Loading downloads from file: " + line); vec_downloaded_videos.push_back(line); }
+    while (std::getline(config_file_favorites_file, line)) { log("Loading favorites from file: " + line); vec_favorited_videos.push_back(line); }
 
     // Start process for updating local instances.
     std::thread background_thread(THREAD_background_worker);
