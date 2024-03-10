@@ -99,6 +99,7 @@ int current_browse_type = 0;
 const std::string browse_types[5] = {"Popular", "Subscriptions", "Downloaded", "Favorite", "Channel"};
 
 // Search Items:
+int search_field = 1; // 0 - Search field, 1 - Video or Channel option
 int search_type = 0; // Types: 0-Videos 1-Channels
 
 const std::string logo[5] = {
@@ -318,8 +319,15 @@ void log ( std::string message, int severity = 0 ) {
     }
 }
 // Ascii vector to string
-std::string ascii_vector_to_string ( const std::vector<int> ascii ) {
+std::string ascii_vector_to_string ( std::vector<int> ascii, bool url = false ) {
     std::string result;
+    if ( url ) {
+        for (int i = 0; i < ascii.size(); ++i) {
+            if (ascii[i] == 32) {
+                ascii[i] = 43;
+            }
+        }
+    }
     for ( int character = 0; character < ascii.size(); ++character ) {
         result += static_cast<char>(ascii[character]);
     }
@@ -945,6 +953,91 @@ bool update_browse_subscriptions () { // https://instancename/api/v1/channels/ch
 
     return true;
 }
+// Search function
+void update_search ( const std::string pattern, int type ) {
+    std::stringstream url_stream;
+    json data;
+
+    if ( type == 0 ) {
+        vec_search_results_videos.clear();
+    } else {
+        vec_search_results_channel.clear();
+    }
+
+    while ( true ) {
+        auto instance = get_random_instance();
+        if ( ! instance.first ) {
+            log("Unable to retrieve random instance", 3);
+            continue;
+        }
+        if ( type == 0 ) { // video
+            url_stream << "https://" << inv_instances_vector[instance.second].name << "/api/v1/search?q=" << pattern << "&type=video";
+        } else { // Channel
+            url_stream << "https://" << inv_instances_vector[instance.second].name << "/api/v1/search?q=" << pattern << "&type=channel";
+        }
+        std::string url = url_stream.str();
+
+        auto result = fetch(url);
+
+        if ( result.first ) {
+            try {
+                data = json::parse(result.second);
+            } catch (const std::exception& e) {
+                std::stringstream parse_result;
+                parse_result << e.what();
+                log("Error parsing JSON: " + parse_result.str(), 3);
+                continue;
+            }
+        } else {
+            log("Curl is unable to contact API: " + url, 3);
+            continue;
+        }
+        if ( ! data.is_array() ) {
+            log("Instance does not support search? " + inv_instances_vector[instance.second].name);
+            continue;
+        }
+        if ( type == 0 ) {
+            for (const auto& item : data) { // for each video in search list
+
+                std::string videoid =   item["videoId"];
+                std::string title =     item["title"];
+                int length =            item["lengthSeconds"];
+                int published =         item["published"];
+                int viewcount =         item["viewCount"];
+                std::string author =    item["author"];
+                std::string author_id = item["authorId"];
+
+                auto video_in_list = get_videoid_from_vector(videoid);
+                int end_of_list = inv_videos_vector.size();
+
+                if ( video_in_list.first ) {
+                    int video = video_in_list.second;
+                    inv_videos_vector[video].title = title;
+                    inv_videos_vector[video].author = author;
+                    inv_videos_vector[video].author_id = author_id;
+                    inv_videos_vector[video].lengthseconds = length;
+                    inv_videos_vector[video].published = published;
+                    inv_videos_vector[video].viewcount = viewcount;
+                } else {
+                    inv_videos_vector.push_back(inv_videos());
+                    inv_videos_vector[end_of_list].URL = videoid;
+                    inv_videos_vector[end_of_list].title = title;
+                    inv_videos_vector[end_of_list].author = author;
+                    inv_videos_vector[end_of_list].author_id = author_id;
+                    inv_videos_vector[end_of_list].lengthseconds = length;
+                    inv_videos_vector[end_of_list].published = published;
+                    inv_videos_vector[end_of_list].viewcount = viewcount;
+                }
+                vec_search_results_videos.push_back(videoid);
+            log("Received video from search: " + videoid);
+            }
+            break;
+        } else if ( type == 1 ) {
+            // WIP
+            break;
+        }
+    }
+}
 // Add key int to key list vector.
 void add_key_input ( int key = 0) {
     if ( ! ( key == 0 )) {
@@ -1028,8 +1121,10 @@ void THREAD_background_worker () {
                 }
                 if ( typing_mode_result ) {
                     if ( input_list_type.size() != 0 ) {
-                        log("Typed Input: " + ascii_vector_to_string(input_list_type));
+                        log("Typed Input as URL: " + ascii_vector_to_string(input_list_type, true));
                     }
+                    update_search(ascii_vector_to_string(input_list_type, true), search_type);
+
                     input_list_type.clear();
                     typing_mode_result = false;
                 }
@@ -1115,6 +1210,7 @@ void calculate_inputs () {
                     } else {
                         quit = true;
                     }
+                    input_list.clear();
                     return;
                 }
             }
@@ -1154,9 +1250,9 @@ void calculate_inputs () {
             if ( ! typing_mode ) {
                 if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
                 else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
-                else if ( input_list[i] == 51 ) { current_menu = 2; current_list_item = 0; } // Key 3 pressed / main menu
-                else if ( input_list[i] == 113 ) {
-                    if (( current_menu == 1 ) && ( popup_box )) {
+                else if ( input_list[i] == 51 ) { current_menu = 2; search_field = 1; } // Key 3 pressed / main menu
+                else if ( input_list[i] == 113 ) { // Q - Quit
+                    if ( popup_box ) {
                         popup_box = false;
                     } else {
                         quit = true;
@@ -1168,7 +1264,7 @@ void calculate_inputs () {
                     }
                 }
                 else if ( key_arrow_type != 0 ) { // Arrow keys
-                    if ( current_menu == 1 ) {
+                    if ( current_menu == 1 ) { // Browse
                         if ( ! popup_box ) {
                             if ( key_arrow_type == 1 ) { // Up
                                 if ( ! ( current_list_item <= 0 )) {
@@ -1193,6 +1289,31 @@ void calculate_inputs () {
                                 if ( ! ( current_browse_type < 1 )) {
                                     --current_browse_type;
                                     current_list_item = 0;
+                                }
+                            }
+                        }
+                    } else if ( current_menu == 2 ) { // Search
+                        if ( ! popup_box ) {
+                            if ( key_arrow_type == 2 ) { // Down
+                                if ( search_field == 1 ) {
+                                    search_field = 0;
+                                    typing_mode = true;
+                                }
+                            } else if ( key_arrow_type == 3 ) { // Left
+                                if ( search_field == 1 ) {
+                                    if ( search_type == 0 ) {
+                                        search_type = 1;
+                                    } else if ( search_type == 1 ) {
+                                        search_type = 0;
+                                    }
+                                }
+                            } else if ( key_arrow_type == 4 ) { // Right
+                                if ( search_field == 1 ) {
+                                    if ( search_type == 0 ) {
+                                        search_type = 1;
+                                    } else if ( search_type == 1 ) {
+                                        search_type = 0;
+                                    }
                                 }
                             }
                         }
@@ -1288,18 +1409,25 @@ void calculate_inputs () {
                 }
                 else { log("Key unknown: " + to_string_int(input_list[i])); }
             } else { // Typing mode enabled.
-                if ((( input_list[i] >= 65 ) && ( input_list[i] <= 90 )) || (( input_list[i] >= 97 ) && ( input_list[i] <= 122 )) || (( input_list[i] >= 48 ) && ( input_list[i] <= 57 ))) { // Check for alphabetical or numerical input
-                    input_list_type.push_back(input_list[i]);
-                    log("Added character: " + to_string_int(input_list[i]) + " To user type list.");
-                }
                 if ( input_list[i] == 127 ) {
                     if ( input_list_type.size() != 0 ) {
                         input_list_type.pop_back();
                     }
                 }
+                if ( key_arrow_type != 0 ) {
+                    typing_mode = false;
+                    search_field = 1;
+                    continue;
+                }
+                if ((( input_list[i] >= 65 ) && ( input_list[i] <= 90 )) || (( input_list[i] >= 97 ) && ( input_list[i] <= 122 )) || (( input_list[i] >= 48 ) && ( input_list[i] <= 57 )) || ( input_list[i] == 32 )) { // Check for alphabetical or numerical input
+                    input_list_type.push_back(input_list[i]);
+                    log("Added character: " + to_string_int(input_list[i]) + " To user type list.");
+                }
                 if ( input_list[i] == 10 ) { // Return key, disabled type mode, and signals that query / usage of typed content can be started.
                     typing_mode = false;
+                    search_field = 1;
                     typing_mode_result = true;
+                    continue;
                 }
             }
         }
@@ -1910,7 +2038,7 @@ void menu_item_search ( int w, int h ) {
 
     if ( received_videos || received_channels ) { // Draw both top info / search box and result list below
         draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, default_frame_color, "Search" );
-        draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, default_frame_color, "Test" );
+        draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, default_frame_color, "Results" );
     } else { // Draw main search box
         draw_box( box1_top_w, box1_top_h, box1_bot_w, box2_bot_h, true, 0, default_frame_color, "Search" );
     }
@@ -1931,25 +2059,57 @@ void menu_item_search ( int w, int h ) {
             int list_bot_w = w - 4;
             int list_top_h = fixed_height + 3;
             int list_bot_h = h - 2;
-            // draw_list_popular(list_top_w, list_top_h, list_bot_w, list_bot_h);
-            // Draw list here
+            // draw_list_search(list_top_w, list_top_h, list_bot_w, list_bot_h); TODO - Create list for video results in vector: vec_search_results_videos
         } else { // Show search box.
+            int search_string_length = input_list_type.size();
 
-            if ( typing_mode ) { // Typing mode
+            int horizontal_center = w / 2;
+            int vertical_center = h / 2;
 
-                int search_string_length = input_list_type.size();
+            int horizontal_field_extend = 0;
 
-                int vertical_center = w / 2;
-                int horizontal_center = h / 2;
+            int search_field_top_w = horizontal_center - horizontal_field_extend - 20;
+            int search_field_bot_w = horizontal_center + horizontal_field_extend + 21;
+            int search_field_top_h = vertical_center - 1;
+            int search_field_bot_h = vertical_center + 1;
 
-                int vertical_field_extend = 0;
+            if ( search_string_length > 37 ) {
+                int horizontal_field_extend_tmp = search_string_length - 37;
+                horizontal_field_extend = horizontal_field_extend_tmp / 2;
+            }
 
-                int search_field_top_w = vertical_center - vertical_field_extend - 5;
-                int search_field_bot_w = vertical_center + vertical_field_extend + 5;
-                int search_field_top_h = horizontal_center - 1;
-                int search_field_bot_h = horizontal_center + 1;
+            draw_box( search_field_top_w - horizontal_field_extend, search_field_top_h, search_field_bot_w + horizontal_field_extend + 1, search_field_bot_h, false, 0, color_cyan );
 
-                draw_box( search_field_top_w, search_field_top_h, search_field_bot_w, search_field_bot_h, false, 0, color_cyan );
+            if ( search_field == 1 ) {
+                printf("\033[%d;%dH", vertical_center - 3, search_field_top_w + 5);
+                std::cout << color_red << "▶" << color_reset;
+                printf("\033[%d;%dH", vertical_center - 3, search_field_bot_w - 5);
+                std::cout << color_red << "◀" << color_reset;
+            } else if ( search_field == 0 ) {
+                printf("\033[%d;%dH", vertical_center, search_field_top_w - 2 - horizontal_field_extend);
+                std::cout << color_red << "▶" << color_reset;
+                printf("\033[%d;%dH", vertical_center, search_field_bot_w + 3 + horizontal_field_extend);
+                std::cout << color_red << "◀" << color_reset;
+            }
+
+            // Type
+            printf("\033[%d;%dH", vertical_center - 3, horizontal_center - 9 );
+            std::cout << color_gray << "Type:" << color_reset;
+            printf("\033[%d;%dH", vertical_center - 3, horizontal_center);
+            if ( search_type == 0 ) {
+                std::cout << color_green << color_bold << "<  Video  >" << color_reset;
+            } else {
+                std::cout << color_green << color_bold << "< Channel >" << color_reset;
+            }
+
+            // Search box content
+            printf("\033[%d;%dH", vertical_center, search_field_top_w - horizontal_field_extend + 2);
+            if ( typing_mode_result ) {
+                std::cout << color_green << color_bold << "LOADING..." << color_reset;
+            } else if ( search_string_length == 0 ) {
+                std::cout << color_gray << "Search..." << color_reset;
+            } else {
+                std::cout << color_yellow << color_bold << ascii_vector_to_string(input_list_type) << color_reset;
             }
         }
     }
@@ -2052,7 +2212,7 @@ int main ( int argc, char *argv[] ) {
 
         if ( quit ) { // UI quit actions
             if ( current_menu == 0 ) { collapse_threads = true; }
-            else if ( current_menu == 1 ) { current_menu = 0; }
+            else if ( current_menu != 0 ) { current_menu = 0; }
 
             quit = false;
             update_ui = true;
