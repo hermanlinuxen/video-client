@@ -42,6 +42,7 @@ bool local_instances_updated = false;
 int epoch_time;
 
 // Global Constants
+const int epoch_time_start = std::time(0);
 const std::string homedir = getenv("HOME");
 const std::string userconfigdir = homedir + "/.config";
 const std::string configdir = userconfigdir + "/video-client";
@@ -60,8 +61,10 @@ int input_character;
 bool input_character_exit = false;
 bool exit_thread_started = false;
 bool typing_mode = false;
+bool typing_mode_result = false;
 unsigned char char_input_character;
 std::vector <int> input_list;
+std::vector <int> input_list_type;
 
 // UI elements
 bool update_ui = true;
@@ -95,6 +98,9 @@ const std::string menu_items[5] = {"Main Menu", "Browse", "Search", "Status", "S
 int current_browse_type = 0;
 const std::string browse_types[5] = {"Popular", "Subscriptions", "Downloaded", "Favorite", "Channel"};
 
+// Search Items:
+int search_type = 0; // Types: 0-Videos 1-Channels
+
 const std::string logo[5] = {
     "__     ___     _               ____ _ _            _",
     "\\ \\   / (_) __| | ___  ___    / ___| (_) ___ _ __ | |_",
@@ -123,24 +129,24 @@ bool arg_help    = false;
 // Videos vector for storing video details.
 struct inv_videos{                      // invidious videos
     // Active variables
-    std::string URL;                    // 11 character video identifier
-    int published;                      // epoch time of release date
-    int lengthseconds;                  // video Length in seconds
-    int viewcount;                      // video views
-    int downloaded_time = 0;            // epoch time when video was downloaded
-    int retry = 0;                      // Amount of retries done to calculate normal video or not.
-    std::string title;                  // video title
-    std::string author;                 // video creator
-    std::string author_id;              // ID of video creator
-    std::string description;            // video description.
-    std::string from_instance;          // first instance video was gathered from.
-    bool favorite = false;              // if video is favorite
-    bool downloaded = false;            // if video is downloaded or not
-    bool currently_downloading = false; // in video is currently downloading
-    bool manual_update = false;         // if video has been manually updated
-    bool priority_update = false;       // if true, video will be picked first for information update
-    bool normal_video = true;           // if false, video is live, pre-live or other which breaks logic. Skip if false.
-    bool from_multiple_instances = false;// if video is found in 2 or more instances
+    std::string URL;                            // 11 character video identifier
+    int published;                              // epoch time of release date
+    int lengthseconds;                          // video Length in seconds
+    int viewcount;                              // video views
+    int downloaded_time = 0;                    // epoch time when video was downloaded
+    int retry = 0;                              // Amount of retries done to calculate normal video or not.
+    std::string title;                          // video title
+    std::string author;                         // video creator
+    std::string author_id;                      // ID of video creator
+    std::string description;                    // video description.
+    std::string from_popular_instance;          // first instance video was gathered from.
+    bool favorite = false;                      // if video is favorite
+    bool downloaded = false;                    // if video is downloaded or not
+    bool currently_downloading = false;         // in video is currently downloading
+    bool manual_update = false;                 // if video has been manually updated
+    bool priority_update = false;               // if true, video will be picked first for information update
+    bool normal_video = true;                   // if false, video is live, pre-live or other which breaks logic. Skip if false.
+    bool from_multiple_instances = false;       // if video is found in 2 or more instances
 };
 std::vector<inv_videos> inv_videos_vector;
 
@@ -171,6 +177,8 @@ std::vector<std::string> vec_browse_popular;            // VideoID's of popular 
 std::vector<std::string> vec_browse_subscriptions;      // VideoID's of subscribed list sorted.
 std::vector<std::string> vec_browse_downloaded;         // VideoID's of downloads list sorted.
 std::vector<std::string> vec_browse_favorites;          // VideoID's of favorites list sorted.
+std::vector<std::string> vec_search_results_videos;     // VideoID's of search results.
+std::vector<std::string> vec_search_results_channel;    // ChannelID's of search results.
 
 std::vector<std::string> vec_global_banned_instances;   // All banned instances
 std::vector<std::string> vec_global_banned_channels;    // All banned channels
@@ -266,9 +274,17 @@ int append_file ( const std::string& filename, const std::string& content, bool 
         return 2;
     }
 }
-// Log functions
-void log_main ( std::string logmsg, int severity = 0, bool file = false ) {
+// Log function
+void log ( std::string message, int severity = 0 ) {
+
+    if ( debug == false ) {
+        if ( severity == 0 ) { // Skip debug logs if not verbose
+            return;
+        }
+    }
+
     std::string severity_prefix;
+
     if ( severity == 0 ) {
         severity_prefix = "DEBUG  ";
     } else if ( severity == 1 ) {
@@ -280,33 +296,34 @@ void log_main ( std::string logmsg, int severity = 0, bool file = false ) {
     } else if ( severity == 4 ) {
         severity_prefix = "FATAL! ";
     }
+
     std::string fullmsg;
-    if ( ! file ) {
+
+    if ( ! log_to_file ) {
         if ( severity == 0 || severity == 1 ) {
-            fullmsg = "Video-Client - " + color_green + severity_prefix + color_reset + " - " + logmsg + "\n";
+            fullmsg = "Video-Client - " + color_green + severity_prefix + color_reset + " - " + message + "\n";
         } else if ( severity == 2 ) {
-            fullmsg = "Video-Client - " + color_yellow + severity_prefix + color_reset + " - " + logmsg + "\n";
+            fullmsg = "Video-Client - " + color_yellow + severity_prefix + color_reset + " - " + message + "\n";
         } else if ( severity > 2 ) {
-            fullmsg = "Video-Client - " + color_red + severity_prefix + color_reset + " - " + logmsg + "\n";
+            fullmsg = "Video-Client - " + color_red + severity_prefix + color_reset + " - " + message + "\n";
         }
         if ( severity == 0 ) {
             std::cout << fullmsg;
         } else {
             std::cerr << fullmsg;
         }
-    } else if ( file == true ) {
-        fullmsg = severity_prefix + " - " + logmsg + "\n";
+    } else if ( log_to_file == true ) {
+        fullmsg = severity_prefix + " - " + message + "\n";
         append_file(logfile, fullmsg);
     }
 }
-void log ( std::string message, int severity = 0 ) {
-    // Example: log("Message here: " + std::to_string(integer_variable), 1);
-    if ( debug == false ){
-        if ( severity == 0 ) {
-            return;
-        }
+// Ascii vector to string
+std::string ascii_vector_to_string ( const std::vector<int> ascii ) {
+    std::string result;
+    for ( int character = 0; character < ascii.size(); ++character ) {
+        result += static_cast<char>(ascii[character]);
     }
-    log_main(message, severity, log_to_file);
+    return result;
 }
 // remove line from file
 void remove_matching_lines ( const std::string& filename, const std::string& pattern ) {
@@ -405,14 +422,6 @@ std::string abbreviated_number(int num) {
         result = std::to_string(num / 1000) + "K";
     } else {
         result = std::to_string(num);
-    }
-    int len = result.length();
-    if ( len == 1 ) {
-        result = "   " + result;
-    } else if ( len == 2 ) {
-        result = "  " + result;
-    } else if ( len == 3 ) {
-        result = " " + result;
     }
     return result;
 }
@@ -778,7 +787,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[video].published = published;
             inv_videos_vector[video].viewcount = viewcount;
             if ( ! inv_videos_vector[video].from_multiple_instances ) {
-                if ( inv_instances_vector[instance].name != inv_videos_vector[video].from_instance ) {
+                if ( inv_instances_vector[instance].name != inv_videos_vector[video].from_popular_instance ) {
                     inv_videos_vector[video].from_multiple_instances = true;
                 }
             }
@@ -791,7 +800,7 @@ bool update_browse_popular ( int instance ) { // https://instance.name/api/v1/po
             inv_videos_vector[end_of_list].lengthseconds = length;
             inv_videos_vector[end_of_list].published = published;
             inv_videos_vector[end_of_list].viewcount = viewcount;
-            inv_videos_vector[end_of_list].from_instance = inv_instances_vector[instance].name;
+            inv_videos_vector[end_of_list].from_popular_instance = inv_instances_vector[instance].name;
         }
         log("Received video: " + videoid + " From instance: " + inv_instances_vector[instance].name);
         // Add to temporary vector
@@ -1014,10 +1023,16 @@ void THREAD_background_worker () {
                 }
             }
             if ( ! ( inv_channels_vector.size() == 0 )) {
-                update_browse_subscriptions();
-            }
-            if ( ! ( inv_videos_vector.size() == 0 )) {
-
+                if ( browse_opened ) {
+                    update_browse_subscriptions();
+                }
+                if ( typing_mode_result ) {
+                    if ( input_list_type.size() != 0 ) {
+                        log("Typed Input: " + ascii_vector_to_string(input_list_type));
+                    }
+                    input_list_type.clear();
+                    typing_mode_result = false;
+                }
                 for ( int video_update_iteration = 0; video_update_iteration < inv_videos_vector.size(); ++video_update_iteration ) {
                     // For loop over each video in video cache
                     for ( int video_update_iteration_favorite = 0; video_update_iteration_favorite < vec_favorited_videos.size(); ++video_update_iteration_favorite ) {
@@ -1028,7 +1043,6 @@ void THREAD_background_worker () {
                         }
                     }
                 }
-
                 for ( int video_priority_update_iteration = 0; video_priority_update_iteration < inv_videos_vector.size(); ++video_priority_update_iteration ) {
                     if (( inv_videos_vector[video_priority_update_iteration].priority_update ) && ( inv_videos_vector[video_priority_update_iteration].normal_video )) {
                         update_video_info(video_priority_update_iteration);
@@ -1036,7 +1050,7 @@ void THREAD_background_worker () {
                         break;
                     }
                 }
-                if ( ! one_video_updated ) {
+                if (( ! one_video_updated ) && ( inv_videos_vector.size() != 0 )) {
                     random_num = random_number(0 , inv_videos_vector.size() - 1);
                     int video_update_iteration_tmp;
                     for ( int video_update_iteration = 0; video_update_iteration < inv_videos_vector.size(); ++video_update_iteration ) {
@@ -1074,12 +1088,10 @@ void THREAD_input () {
         if ( collapse_threads == true ) {
             break;
         }
-        if ( typing_mode == true ) {
-            char_input_character=getchar();
-            input_character = (int)char_input_character;
-        } else {
-            input_character=getchar();
-        }
+
+        char_input_character=getchar();
+        input_character = (int)char_input_character;
+
         add_key_input(input_character);
     }
     tcsetattr(STDIN_FILENO,TCSANOW,&old_tattr);
@@ -1092,8 +1104,17 @@ void calculate_inputs () {
         if ( input_list.size() == 1 ) {
             if ( input_list[0] == 27 ) {
                 if ( input_character == 27 ) {
-                    log("Received exit signal.");
-                    collapse_threads = true;
+                    log("Received escape key.", 1);
+                    if ( popup_box ) {
+                        popup_box = false;
+                    } else if ( current_menu == 0 ) {
+                        collapse_threads = true;
+                    } else if ( typing_mode ) {
+                        typing_mode = false;
+                        input_list_type.clear();
+                    } else {
+                        quit = true;
+                    }
                     return;
                 }
             }
@@ -1101,8 +1122,6 @@ void calculate_inputs () {
     }
 
     if ( ! ( input_list.size() == 0 )) {
-
-        //log("Items in input vector: " + to_string_int(input_list.size()));
 
         update_ui = true;
         int list_item_limit = 0;
@@ -1131,156 +1150,158 @@ void calculate_inputs () {
                 }
             }
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
-            if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
-            else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
-            else if ( input_list[i] == 113 ) {
-                if (( current_menu == 1 ) && ( popup_box )) {
-                    popup_box = false;
-                } else {
-                    quit = true;
+
+            if ( ! typing_mode ) {
+                if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
+                else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
+                else if ( input_list[i] == 51 ) { current_menu = 2; current_list_item = 0; } // Key 3 pressed / main menu
+                else if ( input_list[i] == 113 ) {
+                    if (( current_menu == 1 ) && ( popup_box )) {
+                        popup_box = false;
+                    } else {
+                        quit = true;
+                    }
                 }
-            }
-            else if ( input_list[i] == 10 ) { // Return key
-                if (( current_menu == 1 ) && ( ! popup_box ) && ( current_list_loaded )) {
-                    popup_box = true;
+                else if ( input_list[i] == 10 ) { // Return key
+                    if (( current_menu == 1 ) && ( ! popup_box ) && ( current_list_loaded )) {
+                        popup_box = true;
+                    }
                 }
-            }
-            else if ( key_arrow_type != 0 ) { // alternate approach? if menu = x -> if key = up etc.
-                if ( key_arrow_type == 1 ) { // Up
+                else if ( key_arrow_type != 0 ) { // Arrow keys
                     if ( current_menu == 1 ) {
                         if ( ! popup_box ) {
-                            if ( ! ( current_list_item <= 0 )) {
-                                --current_list_item;
+                            if ( key_arrow_type == 1 ) { // Up
+                                if ( ! ( current_list_item <= 0 )) {
+                                    --current_list_item;
+                                }
+                            } else if ( key_arrow_type == 2 ) { // Down
+                                if ( current_browse_type == 0 ) {
+                                    list_item_limit = vec_browse_popular.size() - 1;
+                                }
+                                if ( current_browse_type == 1 ) {
+                                    list_item_limit = vec_browse_subscriptions.size() - 1;
+                                }
+                                if ( current_list_item < list_item_limit ) {
+                                    ++current_list_item;
+                                }
+                            } else if ( key_arrow_type == 3 ) { // Left
+                                if ( current_browse_type < 3 ) {
+                                    ++current_browse_type;
+                                    current_list_item = 0;
+                                }
+                            } else if ( key_arrow_type == 4 ) { // Right
+                                if ( ! ( current_browse_type < 1 )) {
+                                    --current_browse_type;
+                                    current_list_item = 0;
+                                }
                             }
                         }
                     }
-
-                } else if ( key_arrow_type == 2 ) { // Down
+                }
+                else if ( input_list[i] == 102 ) { // F - Favorite
                     if ( current_menu == 1 ) {
                         if ( current_browse_type == 0 ) {
-                            list_item_limit = vec_browse_popular.size() - 1;
-                        }
-                        if ( current_browse_type == 1 ) {
-                            list_item_limit = vec_browse_subscriptions.size() - 1;
-                        }
-                        if ( ! popup_box ) {
-                            if ( current_list_item < list_item_limit ) {
-                                ++current_list_item;
-                            }
-                        }
-                    }
-
-                } else if ( key_arrow_type == 3 ) { // Left
-                    if ( current_menu == 1 ) {
-                        if ( current_browse_type < 3 ) {
-                            if ( ! popup_box ) {
-                                ++current_browse_type;
-                                current_list_item = 0;
-                            }
-                        }
-                    }
-
-                } else if ( key_arrow_type == 4 ) { // Right
-                    if ( current_menu == 1 ) {
-                        if ( ! ( current_browse_type < 1 )) {
-                            if ( ! popup_box ) {
-                                --current_browse_type;
-                                current_list_item = 0;
-                            }
-                        }
-                    }
-                }
-            }
-            else if ( input_list[i] == 102 ) { // F - Favorite
-                if ( current_menu == 1 ) {
-                    if ( current_browse_type == 0 ) {
-                        if ( vec_browse_popular.size() != 0 ) {
-                            if ( inv_videos_vector[current_selected_video].favorite ) {
-                                remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
-                                inv_videos_vector[current_selected_video].favorite = false;
-                                log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
-                                for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
-                                    if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
-                                        vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                            if ( vec_browse_popular.size() != 0 ) {
+                                if ( inv_videos_vector[current_selected_video].favorite ) {
+                                    remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
+                                    inv_videos_vector[current_selected_video].favorite = false;
+                                    log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                                    for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
+                                        if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
+                                            vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                                        }
                                     }
+                                } else {
+                                    append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
+                                    inv_videos_vector[current_selected_video].favorite = true;
+                                    log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
+                                    vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
                                 }
-                            } else {
-                                append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
-                                inv_videos_vector[current_selected_video].favorite = true;
-                                log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
-                                vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
                             }
-                        }
-                    } else if ( current_browse_type == 1 ) {
-                        if ( vec_browse_subscriptions.size() != 0 ) {
-                            if ( inv_videos_vector[current_selected_video].favorite ) {
-                                remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
-                                inv_videos_vector[current_selected_video].favorite = false;
-                                log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
-                                for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
-                                    if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
-                                        vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                        } else if ( current_browse_type == 1 ) {
+                            if ( vec_browse_subscriptions.size() != 0 ) {
+                                if ( inv_videos_vector[current_selected_video].favorite ) {
+                                    remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
+                                    inv_videos_vector[current_selected_video].favorite = false;
+                                    log("Removed video from favorites: " + inv_videos_vector[current_selected_video].URL);
+                                    for ( int fav = 0; fav < vec_favorited_videos.size(); ++fav ) {
+                                        if ( vec_favorited_videos[fav] == inv_videos_vector[current_selected_video].URL ) {
+                                            vec_favorited_videos.erase(vec_favorited_videos.begin() + fav);
+                                        }
                                     }
+                                } else {
+                                    append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
+                                    inv_videos_vector[current_selected_video].favorite = true;
+                                    log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
+                                    vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
                                 }
+                            }
+                        }
+                    }
+                }
+                else if ( input_list[i] == 115 ) { // S - Subscribe, only works within detailed popup view.
+                    if ( current_menu == 1 ) {
+                        if ( popup_box ) {
+                            bool channel_subscribed = false;
+                            int channel_subscribed_id;
+                            for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
+                                if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
+                                    channel_subscribed = true;
+                                    channel_subscribed_id = check_subscribe_iteration;
+                                    break;
+                                } 
+                            }
+                            if ( channel_subscribed ) {
+                                remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
+                                log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
+                                vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
                             } else {
-                                append_file(config_file_favorites, inv_videos_vector[current_selected_video].URL, true);
-                                inv_videos_vector[current_selected_video].favorite = true;
-                                log("Added video to favorites: " + inv_videos_vector[current_selected_video].URL);
-                                vec_favorited_videos.push_back(inv_videos_vector[current_selected_video].URL);
+                                append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id);
+                                log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
+                                vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
                             }
                         }
                     }
                 }
-            }
-            else if ( input_list[i] == 115 ) { // S - Subscribe, only works within detailed popup view.
-                if ( current_menu == 1 ) {
-                    if ( popup_box ) {
-                        bool channel_subscribed = false;
-                        int channel_subscribed_id;
-                        for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
-                            if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
-                                channel_subscribed = true;
-                                channel_subscribed_id = check_subscribe_iteration;
-                                break;
-                            } 
-                        }
-                        if ( channel_subscribed ) {
-                            remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
-                            log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
-                            vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
-                        } else {
-                            append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id);
-                            log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
-                            vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
-                        }
-                    }
-                }
-            }
-            else if ( input_list[i] == 114 ) { // R - Reset current list / refresh
-                if ( current_menu == 1 ) {
-                    if ( popup_box ) {
-                        inv_videos_vector[current_selected_video].priority_update = true;
-                    } else if ( current_browse_type == 0 ) { // popular
-                        current_list_item = 0;
-                        vec_browse_popular.clear();
-                        for ( int i = 0; i < inv_instances_vector.size(); ++i ) { // Reset popular instance refresh timeout
-                            if (( inv_instances_vector[i].enabled && inv_instances_vector[i].api_enabled ) && ( inv_instances_vector[i].banned == false )) {
-                                inv_instances_vector[i].last_update_popular = epoch() + 301;
+                else if ( input_list[i] == 114 ) { // R - Reset current list / refresh
+                    if ( current_menu == 1 ) {
+                        if ( popup_box ) {
+                            inv_videos_vector[current_selected_video].priority_update = true;
+                        } else if ( current_browse_type == 0 ) { // popular
+                            current_list_item = 0;
+                            vec_browse_popular.clear();
+                            for ( int i = 0; i < inv_instances_vector.size(); ++i ) { // Reset popular instance refresh timeout
+                                if (( inv_instances_vector[i].enabled && inv_instances_vector[i].api_enabled ) && ( inv_instances_vector[i].banned == false )) {
+                                    inv_instances_vector[i].last_update_popular = epoch() + 301;
+                                }
                             }
-                        }
-                    } else if ( current_browse_type == 1 ) { // subscriptions
-                        current_list_item = 0;
-                        vec_browse_subscriptions.clear();
-                        for ( int i = 0; i < inv_channels_vector.size(); ++i ) {
-                            if ( ! inv_channels_vector[i].banned ) {
-                                inv_channels_vector[i].last_updated = 0;
+                        } else if ( current_browse_type == 1 ) { // subscriptions
+                            current_list_item = 0;
+                            vec_browse_subscriptions.clear();
+                            for ( int i = 0; i < inv_channels_vector.size(); ++i ) {
+                                if ( ! inv_channels_vector[i].banned ) {
+                                    inv_channels_vector[i].last_updated = 0;
+                                }
                             }
                         }
                     }
                 }
+                else { log("Key unknown: " + to_string_int(input_list[i])); }
+            } else { // Typing mode enabled.
+                if ((( input_list[i] >= 65 ) && ( input_list[i] <= 90 )) || (( input_list[i] >= 97 ) && ( input_list[i] <= 122 )) || (( input_list[i] >= 48 ) && ( input_list[i] <= 57 ))) { // Check for alphabetical or numerical input
+                    input_list_type.push_back(input_list[i]);
+                    log("Added character: " + to_string_int(input_list[i]) + " To user type list.");
+                }
+                if ( input_list[i] == 127 ) {
+                    if ( input_list_type.size() != 0 ) {
+                        input_list_type.pop_back();
+                    }
+                }
+                if ( input_list[i] == 10 ) { // Return key, disabled type mode, and signals that query / usage of typed content can be started.
+                    typing_mode = false;
+                    typing_mode_result = true;
+                }
             }
-
-            else { log("Key unknown: " + to_string_int(input_list[i])); }
         }
         input_list.clear();
     } else {
@@ -1621,6 +1642,7 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
     std::string video_author_name = inv_videos_vector[video_num].author;
     std::string video_author_id = inv_videos_vector[video_num].author_id;
     std::string video_description;
+    std::string video_from_instance = inv_videos_vector[video_num].from_popular_instance;
 
     int video_released = inv_videos_vector[video_num].published;
     int video_views = inv_videos_vector[video_num].viewcount;
@@ -1656,7 +1678,7 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
     std::cout << color_blue << color_bold << video_title << color_reset;
 
     int center = title_w / 2;
-    int from_middle = center / 6 + 3;
+    int from_middle = center / 4 + 3;
     int left_row = center - from_middle + 1;
     int right_row = center + from_middle + 1;
 
@@ -1720,8 +1742,14 @@ void draw_popup_box_video ( int top_w, int top_h, int bot_w, int bot_h, bool tit
         std::cout << "No";
     }
 
+    // Got from instance: from_popular_instance
+    printf("\033[%d;%dH", top_h + 8, left_row - 15);
+    std::cout << "From Instance:";
+    printf("\033[%d;%dH", top_h + 8, left_row);
+    std::cout << truncate(video_from_instance, right_row - left_row + 10);
+
     // description
-    description( top_w + 2, top_h + 10, bot_w - 2, bot_h, video_description );
+    description( top_w + 2, top_h + 11, bot_w - 2, bot_h, video_description );
 }
 // Main menu page
 void menu_item_main ( int w, int h ) {
@@ -1853,6 +1881,79 @@ void menu_item_browse ( int w, int h ) {
         }
     }
 }
+// Search menu page
+void menu_item_search ( int w, int h ) {
+
+    int vertical_border = 0;
+    int horizontal_border = 0;
+
+    int fixed_height = 7;
+
+    int box1_top_w = horizontal_border + 1;
+    int box1_bot_w = w - horizontal_border;
+    int box1_top_h = vertical_border + 1;
+    int box1_bot_h = h - vertical_border + fixed_height;
+
+    int box2_top_w = horizontal_border + 1;
+    int box2_bot_w = w - horizontal_border;
+    int box2_top_h = vertical_border + fixed_height + 1;
+    int box2_bot_h = h - vertical_border;
+
+    bool received_videos = false;
+    bool received_channels = false;
+
+    if ( vec_search_results_videos.size() != 0 ) {
+        received_videos = true;
+    } else if ( vec_search_results_channel.size() != 0 ) {
+        received_channels = true;
+    }
+
+    if ( received_videos || received_channels ) { // Draw both top info / search box and result list below
+        draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, default_frame_color, "Search" );
+        draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, default_frame_color, "Test" );
+    } else { // Draw main search box
+        draw_box( box1_top_w, box1_top_h, box1_bot_w, box2_bot_h, true, 0, default_frame_color, "Search" );
+    }
+
+    if ( popup_box ) { // Popup popup for selected video
+        if ( vec_browse_popular.size() == 0 ) { popup_box = false; update_ui = true; } else {
+            // Show popup box for video
+            int popup_video_num = current_selected_video;
+            int popup_box_top_w = horizontal_border + 6;
+            int popup_box_bot_w = w - horizontal_border - 5;
+            int popup_box_top_h = vertical_border + fixed_height + 3;
+            int popup_box_bot_h = h - vertical_border - 2;
+            //draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, popup_video_num );
+        }
+    } else {
+        if ( received_videos || received_channels ) { // Show results
+            int list_top_w = 5;
+            int list_bot_w = w - 4;
+            int list_top_h = fixed_height + 3;
+            int list_bot_h = h - 2;
+            // draw_list_popular(list_top_w, list_top_h, list_bot_w, list_bot_h);
+            // Draw list here
+        } else { // Show search box.
+
+            if ( typing_mode ) { // Typing mode
+
+                int search_string_length = input_list_type.size();
+
+                int vertical_center = w / 2;
+                int horizontal_center = h / 2;
+
+                int vertical_field_extend = 0;
+
+                int search_field_top_w = vertical_center - vertical_field_extend - 5;
+                int search_field_bot_w = vertical_center + vertical_field_extend + 5;
+                int search_field_top_h = horizontal_center - 1;
+                int search_field_bot_h = horizontal_center + 1;
+
+                draw_box( search_field_top_w, search_field_top_h, search_field_bot_w, search_field_bot_h, false, 0, color_cyan );
+            }
+        }
+    }
+}
 // Main UI Function
 void draw_ui ( int w, int h ) {
 
@@ -1860,6 +1961,8 @@ void draw_ui ( int w, int h ) {
         menu_item_main(w, h);
     } else if ( current_menu == 1 ) {
         menu_item_browse(w, h);
+    } else if ( current_menu == 2 ) {
+        menu_item_search(w, h);
     }
 
 }
