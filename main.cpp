@@ -1250,7 +1250,7 @@ void calculate_inputs () {
             if ( ! typing_mode ) {
                 if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
                 else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
-                else if ( input_list[i] == 51 ) { current_menu = 2; search_field = 1; } // Key 3 pressed / main menu
+                else if ( input_list[i] == 51 ) { current_menu = 2; search_field = 1; current_list_item = 0; } // Key 3 pressed / main menu
                 else if ( input_list[i] == 113 ) { // Q - Quit
                     if ( popup_box ) {
                         popup_box = false;
@@ -1294,10 +1294,25 @@ void calculate_inputs () {
                         }
                     } else if ( current_menu == 2 ) { // Search
                         if ( ! popup_box ) {
-                            if ( key_arrow_type == 2 ) { // Down
+                            if ( key_arrow_type == 1 ) {
+                                if (( vec_search_results_videos.size() != 0 ) || ( vec_search_results_channel.size() != 0 )) {
+                                    if ( ! ( current_list_item <= 0 )) {
+                                        --current_list_item;
+                                    }
+                                }
+                            } else if ( key_arrow_type == 2 ) { // Down
                                 if ( search_field == 1 ) {
                                     search_field = 0;
                                     typing_mode = true;
+                                } else if (( vec_search_results_videos.size() != 0 ) || ( vec_search_results_channel.size() != 0 )) {
+                                    if ( vec_search_results_videos.size() != 0 ) {
+                                        list_item_limit = vec_search_results_videos.size() - 1;
+                                    } else if ( vec_search_results_channel.size() != 0 ) {
+                                        list_item_limit = vec_search_results_channel.size() - 1;
+                                    }
+                                    if ( current_list_item < list_item_limit ) {
+                                        ++current_list_item;
+                                    }
                                 }
                             } else if ( key_arrow_type == 3 ) { // Left
                                 if ( search_field == 1 ) {
@@ -1647,6 +1662,125 @@ void draw_list_subscriptions ( int top_w, int top_h, int bot_w, int bot_h ) {
         std::cout << color_bold << truncate(title, length_title) << color_reset;
 
         if ( vec_browse_subscriptions.size() == 0 ) { break; }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 2); // Video Length
+        if ( current_list_item == line + list_shift) {
+            std::cout << color_bold << color_red << length << color_reset;
+        } else {
+            std::cout << color_bold << color_blue << length << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
+        std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+
+        printf("\033[%d;%dH", top_h + line, pos_released); // released
+        std::cout << color_bold << released << color_reset;
+        printf("\033[%d;%dH", top_h + line, pos_released + 4);
+        std::cout << color_gray << "Ago" << color_reset;
+
+        printf("\033[%d;%dH", top_h + line, pos_views); // Views
+        std::cout << color_bold << views << color_gray << " Views" << color_reset;
+
+        if ( favorite ) {
+            printf("\033[%d;%dH", top_h + line, pos_star); // Star
+            std::cout << color_yellow << "✦" << color_reset;
+        }
+
+        ++list_shown_item;
+    }
+}
+// Search result video list
+void draw_list_search_result_video ( int top_w, int top_h, int bot_w, int bot_h ) {
+    // vec_search_results_videos
+    int list_length = bot_h - top_h + 1;
+    int list_width;
+
+    int scrollbar_length = bot_h - top_h + 3;
+    std::string scrollbar_character;
+    std::pair<double, double> from_vidlist = std::make_pair(0, vec_search_results_videos.size());
+    std::pair<double, double> to_scroll = std::make_pair(0, scrollbar_length);
+    double from_scrollbar_value = current_list_item;
+    int scrollbar_handle = convert_range(from_vidlist, from_scrollbar_value, to_scroll);
+    if ( scrollbar_handle <= 1 ) { // Stop scrollbar from clipping
+        scrollbar_handle = 1;
+    } else if ( scrollbar_handle >= scrollbar_length - 2 ) {
+        scrollbar_handle = scrollbar_length - 2;
+    }
+
+    for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
+        printf("\033[%d;%dH", top_h + scrollbar - 1, bot_w + 1 );
+        if ( scrollbar == 0 ) {
+            scrollbar_character = "┳";
+        } else if ( scrollbar == scrollbar_length - 1 ) {
+            scrollbar_character = "┻";
+        } else if ( scrollbar == scrollbar_handle ) {
+            scrollbar_character = "█";
+        } else {
+            scrollbar_character = "┃";
+        }
+        std::cout << color_cyan << scrollbar_character << color_reset;
+    }
+
+    int last_item = vec_search_results_videos.size();
+    int list_shown_item = 0;
+    std::string title;
+    std::string author;
+    std::string views;
+    std::string released;
+    std::string length;
+    bool favorite;
+
+    int pos_star = bot_w - 5;
+    int pos_views = bot_w - 16;
+    int pos_released = bot_w - 25;
+
+    list_width = bot_w - 7 - top_w;
+    int length_to_remove = list_width - pos_released + top_w;
+    int dynamic_section = list_width - length_to_remove;
+    int length_author = dynamic_section * 0.4;
+    int length_title = dynamic_section - length_author;
+
+    if ( current_list_item == 0 ) { list_shift = 0; }
+    if ( current_list_item - list_shift >= list_length - 5 ) {
+        if ( ! ( current_list_item + 5 >= last_item )) {
+            ++list_shift;
+        }
+    } else if ( current_list_item - list_shift <= 4 ) {
+        if ( current_list_item >= 5 ) {
+            --list_shift;
+        }
+    }
+
+    for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
+        if ( vec_search_results_videos.size() != 0 ) {
+            if ( vec_search_results_videos.size() <= line ) { break; }
+            auto video_vector_number = get_videoid_from_vector(vec_search_results_videos[list_shown_item + list_shift]);
+            title = inv_videos_vector[video_vector_number.second].title;
+            author = inv_videos_vector[video_vector_number.second].author;
+            favorite = inv_videos_vector[video_vector_number.second].favorite;
+            length = seconds_to_list_format(inv_videos_vector[video_vector_number.second].lengthseconds);
+            released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
+            views = abbreviated_number(inv_videos_vector[video_vector_number.second].viewcount);
+            if ( current_list_item == line + list_shift) {
+                current_selected_video = video_vector_number.second;
+            }
+            current_list_loaded = true;
+        } else {
+            title = "Loading...";
+            current_list_loaded = false;
+        }
+
+        if ( current_list_item == line + list_shift) {
+            printf("\033[%d;%dH", top_h + line, top_w - 2);
+            std::cout << color_red << color_bold << "▶" << color_reset;
+            printf("\033[%d;%dH", top_h + line, bot_w - 2);
+            std::cout  << color_red << color_bold << "◀" << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, top_w + 1); // Title
+        std::cout << color_bold << truncate(title, length_title) << color_reset;
+
+        if ( vec_search_results_videos.size() == 0 ) { break; }
 
         printf("\033[%d;%dH", top_h + line, length_title + top_w + 2); // Video Length
         if ( current_list_item == line + list_shift) {
@@ -2059,7 +2193,10 @@ void menu_item_search ( int w, int h ) {
             int list_bot_w = w - 4;
             int list_top_h = fixed_height + 3;
             int list_bot_h = h - 2;
-            // draw_list_search(list_top_w, list_top_h, list_bot_w, list_bot_h); TODO - Create list for video results in vector: vec_search_results_videos
+            if ( received_videos ) {
+                draw_list_search_result_video(list_top_w, list_top_h, list_bot_w, list_bot_h);
+            }
+            // TODO - Create list for video results in vector: vec_search_results_videos
         } else { // Show search box.
             int search_string_length = input_list_type.size();
 
