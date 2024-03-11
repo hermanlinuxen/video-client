@@ -1259,7 +1259,7 @@ void calculate_inputs () {
                     }
                 }
                 else if ( input_list[i] == 10 ) { // Return key
-                    if (( current_menu == 1 ) && ( ! popup_box ) && ( current_list_loaded )) {
+                    if ((( current_menu == 1 ) || ( current_menu == 2 )) && ( ! popup_box ) && ( current_list_loaded )) {
                         popup_box = true;
                     }
                 }
@@ -1301,10 +1301,7 @@ void calculate_inputs () {
                                     }
                                 }
                             } else if ( key_arrow_type == 2 ) { // Down
-                                if ( search_field == 1 ) {
-                                    search_field = 0;
-                                    typing_mode = true;
-                                } else if (( vec_search_results_videos.size() != 0 ) || ( vec_search_results_channel.size() != 0 )) {
+                                if (( vec_search_results_videos.size() != 0 ) || ( vec_search_results_channel.size() != 0 )) {
                                     if ( vec_search_results_videos.size() != 0 ) {
                                         list_item_limit = vec_search_results_videos.size() - 1;
                                     } else if ( vec_search_results_channel.size() != 0 ) {
@@ -1312,6 +1309,11 @@ void calculate_inputs () {
                                     }
                                     if ( current_list_item < list_item_limit ) {
                                         ++current_list_item;
+                                    }
+                                } else {
+                                    if ( search_field == 1 ) {
+                                        search_field = 0;
+                                        typing_mode = true;
                                     }
                                 }
                             } else if ( key_arrow_type == 3 ) { // Left
@@ -1336,7 +1338,7 @@ void calculate_inputs () {
                 }
                 else if ( input_list[i] == 102 ) { // F - Favorite
                     if ( current_menu == 1 ) {
-                        if ( current_browse_type == 0 ) {
+                        if ( current_browse_type == 0 ) { // ToDo: Combine current menu 0 and 1
                             if ( vec_browse_popular.size() != 0 ) {
                                 if ( inv_videos_vector[current_selected_video].favorite ) {
                                     remove_matching_lines(config_file_favorites, inv_videos_vector[current_selected_video].URL);
@@ -1376,26 +1378,24 @@ void calculate_inputs () {
                     }
                 }
                 else if ( input_list[i] == 115 ) { // S - Subscribe, only works within detailed popup view.
-                    if ( current_menu == 1 ) {
-                        if ( popup_box ) {
-                            bool channel_subscribed = false;
-                            int channel_subscribed_id;
-                            for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
-                                if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
-                                    channel_subscribed = true;
-                                    channel_subscribed_id = check_subscribe_iteration;
-                                    break;
-                                } 
+                    if (( current_menu == 1 ) || ( current_menu == 2 )) {
+                        bool channel_subscribed = false;
+                        int channel_subscribed_id;
+                        for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
+                            if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
+                                channel_subscribed = true;
+                                channel_subscribed_id = check_subscribe_iteration;
+                                break;
                             }
-                            if ( channel_subscribed ) {
-                                remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
-                                log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
-                                vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
-                            } else {
-                                append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id);
-                                log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
-                                vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
-                            }
+                        }
+                        if ( channel_subscribed ) {
+                            remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
+                            log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
+                            vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
+                        } else {
+                            append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id, true);
+                            log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
+                            vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
                         }
                     }
                 }
@@ -1419,6 +1419,17 @@ void calculate_inputs () {
                                     inv_channels_vector[i].last_updated = 0;
                                 }
                             }
+                        }
+                    } else if ( current_menu == 2 ) {
+                        if ( popup_box ) {
+                            inv_videos_vector[current_selected_video].priority_update = true;
+                        } else {
+                            if ( vec_search_results_videos.size() != 0 ) {
+                                vec_search_results_videos.clear();
+                            } else if ( vec_search_results_channel.size() != 0 ) {
+                                vec_search_results_channel.clear();
+                            }
+                            search_field = 1;
                         }
                     }
                 }
@@ -1491,6 +1502,7 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
     std::string released;
     std::string length;
     bool favorite;
+    bool subscribed = false;
 
     int pos_star = bot_w - 5;
     int pos_views = bot_w - 16;
@@ -1526,6 +1538,12 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
             if ( current_list_item == line + list_shift) {
                 current_selected_video = video_vector_number.second;
             }
+            subscribed = false;
+            for ( int channel = 0; channel < vec_subscribed_channels.size(); ++channel ) {
+                if ( vec_subscribed_channels[channel] == inv_videos_vector[video_vector_number.second].author_id ) {
+                    subscribed = true;
+                }
+            }
             current_list_loaded = true;
         } else {
             title = "Loading...";
@@ -1552,7 +1570,11 @@ void draw_list_popular ( int top_w, int top_h, int bot_w, int bot_h ) {
         }
 
         printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
-        std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        if ( subscribed ) {
+            std::cout << color_bold << color_green << truncate(author, length_author - 9) << color_reset;
+        } else {
+            std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        }
 
         printf("\033[%d;%dH", top_h + line, pos_released); // released
         std::cout << color_bold << released << color_reset;
@@ -1610,6 +1632,7 @@ void draw_list_subscriptions ( int top_w, int top_h, int bot_w, int bot_h ) {
     std::string released;
     std::string length;
     bool favorite;
+    bool subscribed;
 
     int pos_star = bot_w - 5;
     int pos_views = bot_w - 16;
@@ -1645,6 +1668,12 @@ void draw_list_subscriptions ( int top_w, int top_h, int bot_w, int bot_h ) {
             if ( current_list_item == line + list_shift) {
                 current_selected_video = video_vector_number.second;
             }
+            subscribed = false;
+            for ( int channel = 0; channel < vec_subscribed_channels.size(); ++channel ) {
+                if ( vec_subscribed_channels[channel] == inv_videos_vector[video_vector_number.second].author_id ) {
+                    subscribed = true;
+                }
+            }
             current_list_loaded = true;
         } else {
             title = "Loading...";
@@ -1671,7 +1700,11 @@ void draw_list_subscriptions ( int top_w, int top_h, int bot_w, int bot_h ) {
         }
 
         printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
-        std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        if ( subscribed ) {
+            std::cout << color_bold << color_green << truncate(author, length_author - 9) << color_reset;
+        } else {
+            std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        }
 
         printf("\033[%d;%dH", top_h + line, pos_released); // released
         std::cout << color_bold << released << color_reset;
@@ -1729,6 +1762,7 @@ void draw_list_search_result_video ( int top_w, int top_h, int bot_w, int bot_h 
     std::string released;
     std::string length;
     bool favorite;
+    bool subscribed;
 
     int pos_star = bot_w - 5;
     int pos_views = bot_w - 16;
@@ -1764,6 +1798,12 @@ void draw_list_search_result_video ( int top_w, int top_h, int bot_w, int bot_h 
             if ( current_list_item == line + list_shift) {
                 current_selected_video = video_vector_number.second;
             }
+            subscribed = false;
+            for ( int channel = 0; channel < vec_subscribed_channels.size(); ++channel ) {
+                if ( vec_subscribed_channels[channel] == inv_videos_vector[video_vector_number.second].author_id ) {
+                    subscribed = true;
+                }
+            }
             current_list_loaded = true;
         } else {
             title = "Loading...";
@@ -1790,7 +1830,11 @@ void draw_list_search_result_video ( int top_w, int top_h, int bot_w, int bot_h 
         }
 
         printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
-        std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        if ( subscribed ) {
+            std::cout << color_bold << color_green << truncate(author, length_author - 9) << color_reset;
+        } else {
+            std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        }
 
         printf("\033[%d;%dH", top_h + line, pos_released); // released
         std::cout << color_bold << released << color_reset;
@@ -2178,14 +2222,15 @@ void menu_item_search ( int w, int h ) {
     }
 
     if ( popup_box ) { // Popup popup for selected video
-        if ( vec_browse_popular.size() == 0 ) { popup_box = false; update_ui = true; } else {
+        if ( vec_search_results_videos.size() == 0 ) { popup_box = false; update_ui = true; } else {
             // Show popup box for video
             int popup_video_num = current_selected_video;
             int popup_box_top_w = horizontal_border + 6;
             int popup_box_bot_w = w - horizontal_border - 5;
             int popup_box_top_h = vertical_border + fixed_height + 3;
             int popup_box_bot_h = h - vertical_border - 2;
-            //draw_popup_box_video( popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, popup_video_num );
+
+            draw_popup_box_video(popup_box_top_w, popup_box_top_h, popup_box_bot_w, popup_box_bot_h, true, current_selected_video);
         }
     } else {
         if ( received_videos || received_channels ) { // Show results
