@@ -1049,6 +1049,7 @@ void THREAD_background_worker () {
 
     int last_update_instances;
     int random_num;
+    int instances_update_attempts = 0;
     bool one_video_updated;
 
     update_instances(); // Update local instances.
@@ -1059,6 +1060,7 @@ void THREAD_background_worker () {
         one_video_updated = false;
         if ( collapse_threads ) { break; }
         if ( inv_instances_vector.size() != 0 ) {
+            instances_update_attempts = 0;
             // instances loaded
             if ( epoch() >= last_update_instances + 600 ) {
                 log("Instances not updated in 10 minutes, updating now...", 1);
@@ -1162,8 +1164,15 @@ void THREAD_background_worker () {
                 }
             }
         } else { // Attempt again after 10 seconds.
-            log("WRK_THR: Unable to update local instances.", 4);
-            usleep(60000000); // 60s
+            log("Unable to update instances. Attempt number: " + to_string_int(instances_update_attempts));
+            if ( instances_update_attempts > 4 ) {
+                log("Instances update attempted 5 times. Sleeping for 60s...", 4);
+                instances_update_attempts = 0;
+                usleep(60000000); // 60s
+            } else {
+                log("Attempting instance refresh.", 3);
+                ++instances_update_attempts;
+            }
             update_instances();
         }
         usleep(1000000); // 1s sleep
@@ -1379,23 +1388,25 @@ void calculate_inputs () {
                 }
                 else if ( input_list[i] == 115 ) { // S - Subscribe, only works within detailed popup view.
                     if (( current_menu == 1 ) || ( current_menu == 2 )) {
-                        bool channel_subscribed = false;
-                        int channel_subscribed_id;
-                        for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
-                            if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
-                                channel_subscribed = true;
-                                channel_subscribed_id = check_subscribe_iteration;
-                                break;
+                        if ( inv_videos_vector.size() != 0 ) {
+                            bool channel_subscribed = false;
+                            int channel_subscribed_id;
+                            for ( int check_subscribe_iteration = 0; check_subscribe_iteration < vec_subscribed_channels.size(); ++check_subscribe_iteration ) {
+                                if ( vec_subscribed_channels[check_subscribe_iteration] == inv_videos_vector[current_selected_video].author_id ) {
+                                    channel_subscribed = true;
+                                    channel_subscribed_id = check_subscribe_iteration;
+                                    break;
+                                }
                             }
-                        }
-                        if ( channel_subscribed ) {
-                            remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
-                            log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
-                            vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
-                        } else {
-                            append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id, true);
-                            log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
-                            vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
+                            if ( channel_subscribed ) {
+                                remove_matching_lines(config_file_subscriptions, vec_subscribed_channels[channel_subscribed_id]);
+                                log("Unsubscribing from: " + vec_subscribed_channels[channel_subscribed_id]);
+                                vec_subscribed_channels.erase(vec_subscribed_channels.begin() + channel_subscribed_id);
+                            } else {
+                                append_file(config_file_subscriptions, inv_videos_vector[current_selected_video].author_id, true);
+                                log("Subscribed to channel: " + inv_videos_vector[current_selected_video].author_id);
+                                vec_subscribed_channels.push_back(inv_videos_vector[current_selected_video].author_id);
+                            }
                         }
                     }
                 }
@@ -1460,6 +1471,141 @@ void calculate_inputs () {
         input_list.clear();
     } else {
         return;
+    }
+}
+// Draw lists for popular, subscriptions, search and other videos.
+void draw_list_videos ( int top_w, int top_h, int bot_w, int bot_h, std::vector<std::string> video_vector ) {
+
+    int video_vector_length = video_vector.size();
+    
+    int list_length = bot_h - top_h + 1;
+    int list_width;
+
+    // Scrollbar Rules
+    int scrollbar_length = bot_h - top_h + 3;
+    std::string scrollbar_character;
+    std::pair<double, double> from_vidlist = std::make_pair(0, video_vector_length);
+    std::pair<double, double> to_scroll = std::make_pair(0, scrollbar_length);
+    double from_scrollbar_value = current_list_item;
+    int scrollbar_handle = convert_range(from_vidlist, from_scrollbar_value, to_scroll);
+    if ( scrollbar_handle <= 1 ) { // Stop scrollbar from clipping
+        scrollbar_handle = 1;
+    } else if ( scrollbar_handle >= scrollbar_length - 2 ) {
+        scrollbar_handle = scrollbar_length - 2;
+    }
+
+    // Draw Scrollbar
+    for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
+        printf("\033[%d;%dH", top_h + scrollbar - 1, bot_w + 1 );
+        if ( scrollbar == 0 ) {
+            scrollbar_character = "┳";
+        } else if ( scrollbar == scrollbar_length - 1 ) {
+            scrollbar_character = "┻";
+        } else if ( scrollbar == scrollbar_handle ) {
+            scrollbar_character = "█";
+        } else {
+            scrollbar_character = "┃";
+        }
+        std::cout << color_cyan << scrollbar_character << color_reset;
+    }
+
+    // UI positions and settings
+    int last_item = video_vector_length;
+    int list_shown_item = 0;
+    std::string title;
+    std::string author;
+    std::string views;
+    std::string released;
+    std::string length;
+    bool favorite;
+    bool subscribed = false;
+
+    int pos_star = bot_w - 5;
+    int pos_views = bot_w - 16;
+    int pos_released = bot_w - 25;
+
+    list_width = bot_w - 7 - top_w;
+    int length_to_remove = list_width - pos_released + top_w;
+    int dynamic_section = list_width - length_to_remove;
+    int length_author = dynamic_section * 0.4;
+    int length_title = dynamic_section - length_author;
+
+    if ( current_list_item == 0 ) { list_shift = 0; }
+    if ( current_list_item - list_shift >= list_length - 5 ) {
+        if ( ! ( current_list_item + 5 >= last_item )) {
+            ++list_shift;
+        }
+    } else if ( current_list_item - list_shift <= 4 ) {
+        if ( current_list_item >= 5 ) {
+            --list_shift;
+        }
+    }
+
+    for ( int line = 0; line < list_length; ++line ) { // Each menu list, line iterated downwards.
+        if ( video_vector_length != 0 ) {
+            if ( video_vector_length <= line ) { break; }
+            auto video_vector_number = get_videoid_from_vector(video_vector[list_shown_item + list_shift]);
+            title = inv_videos_vector[video_vector_number.second].title;
+            author = inv_videos_vector[video_vector_number.second].author;
+            favorite = inv_videos_vector[video_vector_number.second].favorite;
+            length = seconds_to_list_format(inv_videos_vector[video_vector_number.second].lengthseconds);
+            released = uploaded_format(epoch() - inv_videos_vector[video_vector_number.second].published);
+            views = abbreviated_number(inv_videos_vector[video_vector_number.second].viewcount);
+            if ( current_list_item == line + list_shift) {
+                current_selected_video = video_vector_number.second;
+            }
+            subscribed = false;
+            for ( int channel = 0; channel < vec_subscribed_channels.size(); ++channel ) {
+                if ( vec_subscribed_channels[channel] == inv_videos_vector[video_vector_number.second].author_id ) {
+                    subscribed = true;
+                }
+            }
+            current_list_loaded = true;
+        } else {
+            title = "Loading...";
+            current_list_loaded = false;
+        }
+
+        if ( current_list_item == line + list_shift) {
+            printf("\033[%d;%dH", top_h + line, top_w - 2);
+            std::cout << color_red << color_bold << "▶" << color_reset;
+            printf("\033[%d;%dH", top_h + line, bot_w - 2);
+            std::cout  << color_red << color_bold << "◀" << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, top_w + 1); // Title
+        std::cout << color_bold << truncate(title, length_title) << color_reset;
+
+        if ( video_vector_length == 0 ) { break; }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 2); // Video Length
+        if ( current_list_item == line + list_shift) {
+            std::cout << color_bold << color_red << length << color_reset;
+        } else {
+            std::cout << color_bold << color_blue << length << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, length_title + top_w + 8); // author
+        if ( subscribed ) {
+            std::cout << color_bold << color_green << truncate(author, length_author - 9) << color_reset;
+        } else {
+            std::cout << color_cyan << truncate(author, length_author - 9) << color_reset;
+        }
+
+        printf("\033[%d;%dH", top_h + line, pos_released); // released
+        std::cout << color_bold << released << color_reset;
+        printf("\033[%d;%dH", top_h + line, pos_released + 4);
+        std::cout << color_gray << "Ago" << color_reset;
+
+        printf("\033[%d;%dH", top_h + line, pos_views); // Views
+        std::cout << color_bold << views << color_gray << " Views" << color_reset;
+
+        if ( favorite ) {
+            printf("\033[%d;%dH", top_h + line, pos_star); // Star
+            std::cout << color_yellow << "✦" << color_reset;
+        }
+
+        ++list_shown_item;
     }
 }
 // Draw popular videos list to screen
@@ -2239,7 +2385,7 @@ void menu_item_search ( int w, int h ) {
             int list_top_h = fixed_height + 3;
             int list_bot_h = h - 2;
             if ( received_videos ) {
-                draw_list_search_result_video(list_top_w, list_top_h, list_bot_w, list_bot_h);
+                draw_list_videos(list_top_w, list_top_h, list_bot_w, list_bot_h, vec_search_results_videos);
             }
             // TODO - Create list for video results in vector: vec_search_results_videos
         } else { // Show search box.
