@@ -76,6 +76,10 @@ int current_list_item = 0;
 int current_selected_video = 0;
 int list_shift = 0;
 
+// Remove:
+int vertical_border = 0;
+int horizontal_border = 0;
+
 /*
     Menu items:
     0 - Main Menu
@@ -97,6 +101,15 @@ const std::string menu_items[5] = {"Main Menu", "Browse", "Search", "Status", "S
 */
 int current_browse_type = 0;
 const std::string browse_types[5] = {"Popular", "Subscriptions", "Downloaded", "Favorite", "Channel"};
+
+/*
+    Settings items:
+    0 - Main preferences
+    1 - Instance settings
+    2 - Channels / subscriptions settings
+*/
+int current_settings_type = 0;
+const std::string settings_types[3] = {"Preferences", "Instances", "Subscriptions"};
 
 // Search Items:
 int search_field = 1; // 0 - Search field, 1 - Video or Channel option
@@ -1039,7 +1052,7 @@ void update_search ( const std::string pattern, int type ) {
     }
 }
 // Add key int to key list vector.
-void add_key_input ( int key = 0) {
+void add_key_input ( int key = 0 ) {
     if ( ! ( key == 0 )) {
         input_list.push_back(key);
     }
@@ -1257,9 +1270,11 @@ void calculate_inputs () {
             log("Input vector iteration: " + to_string_int(i) + " Value: " + to_string_int(input_list[i]));
 
             if ( ! typing_mode ) {
-                if ( input_list[i] == 49 ) { current_menu = 0; current_list_item = 0; } // Key 1 pressed / main menu
-                else if ( input_list[i] == 50 ) { current_menu = 1; current_list_item = 0; } // Key 2 pressed / main menu
-                else if ( input_list[i] == 51 ) { current_menu = 2; search_field = 1; current_list_item = 0; } // Key 3 pressed / main menu
+                if ( input_list[i] == 49 ) {      current_menu = 0; popup_box = false; current_list_item = 0; } // Key 1 pressed / main menu
+                else if ( input_list[i] == 50 ) { current_menu = 1; popup_box = false; current_list_item = 0; } // Key 2 pressed / browse
+                else if ( input_list[i] == 51 ) { current_menu = 2; popup_box = false; current_list_item = 0; search_field = 1; } // Key 3 pressed / search
+                else if ( input_list[i] == 52 ) { current_menu = 3; popup_box = false; current_list_item = 0; } // Key 4 pressed / Status
+                else if ( input_list[i] == 53 ) { current_menu = 4; popup_box = false; current_list_item = 0; } // key 5 pressed / Settings
                 else if ( input_list[i] == 113 ) { // Q - Quit
                     if ( popup_box ) {
                         popup_box = false;
@@ -1303,7 +1318,7 @@ void calculate_inputs () {
                         }
                     } else if ( current_menu == 2 ) { // Search
                         if ( ! popup_box ) {
-                            if ( key_arrow_type == 1 ) {
+                            if ( key_arrow_type == 1 ) { // Up
                                 if (( vec_search_results_videos.size() != 0 ) || ( vec_search_results_channel.size() != 0 )) {
                                     if ( ! ( current_list_item <= 0 )) {
                                         --current_list_item;
@@ -1342,6 +1357,20 @@ void calculate_inputs () {
                                     }
                                 }
                             }
+                        }
+                    } else if ( current_menu == 4 ) {
+                        if ( key_arrow_type == 1 ) { // Up
+                            if (( current_settings_type == 1 ) || ( current_settings_type == 2 )) {
+                                if ( current_list_item > 0 ) { --current_list_item; }
+                            }
+                        } else if ( key_arrow_type == 2 ) { // Down
+                            if ( current_settings_type == 1 ) {
+                                if ( current_list_item < inv_instances_vector.size() - 1) { ++current_list_item; }
+                            }
+                        } else if ( key_arrow_type == 4 ) { // Left
+                            if ( current_settings_type > 0 ) { --current_settings_type; }
+                        } else if ( key_arrow_type == 3 ) { // Right
+                            if ( current_settings_type < 2 ) { ++current_settings_type; }
                         }
                     }
                 }
@@ -1477,7 +1506,7 @@ void calculate_inputs () {
 void draw_list_videos ( int top_w, int top_h, int bot_w, int bot_h, std::vector<std::string> video_vector ) {
 
     int video_vector_length = video_vector.size();
-    
+
     int list_length = bot_h - top_h + 1;
     int list_width;
 
@@ -1630,14 +1659,14 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
         for ( y = top_w; y <= bot_w; ++y ) { // For each column rightward
             if ( x == top_h && y == top_w ) {
                 // top left corner
-                if ( type == 2 ) { character = "┬"; }
-                else if ( type == 4 || type == 9 ) { character = "├"; }
+                if ( type == 2 || type == 8 ) { character = "┬"; }
+                else if ( type == 4 || type == 7 || type == 9 ) { character = "├"; }
                 else { character = "╭"; }
 
             } else if ( x == top_h && y == bot_w ) {
                 // top right corner
-                if ( type == 1 ) { skip = true; }
-                else if ( type == 4 || type == 9 ) { character = "┤"; }
+                if ( type == 1 || type == 7 ) { skip = true; }
+                else if ( type == 4 || type == 8 || type == 9 ) { character = "┤"; }
                 else { character = "╮"; }
 
             } else if ( x == top_h ) {
@@ -1646,13 +1675,13 @@ void draw_box ( int top_w, int top_h, int bot_w, int bot_h, bool title, int type
 
             } else if ( x == bot_h && y == top_w ) {
                 // bot left corner
-                if ( type == 2 ) { character = "┴"; }
+                if ( type == 2 || type == 8 ) { character = "┴"; }
                 else if ( type == 3 || type == 9 ) { skip = true; }
                 else { character = "╰"; }
 
             } else if ( x == bot_h && y == bot_w ) {
                 // bot right corner
-                if ( type == 1 || type == 3 || type == 9 ) { skip = true; }
+                if ( type == 1 || type == 3 || type == 7 || type == 9 ) { skip = true; }
                 else { character = "╯"; }
 
             } else if ( x == bot_h ) {
@@ -1824,9 +1853,6 @@ void menu_item_main ( int w, int h ) {
         large_canvas = true;
     }
 
-    int vertical_border = 0;
-    int horizontal_border = 0;
-
     int fixed_height = 7;
 
     int box1_top_w = horizontal_border + 1;
@@ -1854,7 +1880,7 @@ void menu_item_main ( int w, int h ) {
 
         draw_box( small_box2_top_w, small_box2_top_h, small_box2_bot_w, small_box2_bot_h, false, 4, default_frame_color );
     }
-    
+
     //Version number
     if ( debug && large_canvas ) {
         printf("\033[%d;%dH", 2, 3);
@@ -1889,9 +1915,6 @@ void menu_item_main ( int w, int h ) {
 // Browse menu page
 void menu_item_browse ( int w, int h ) {
     // Boxes: 2, top short fixed, bottom video list.
-
-    int vertical_border = 0;
-    int horizontal_border = 0;
 
     int fixed_height = 7;
 
@@ -1945,9 +1968,6 @@ void menu_item_browse ( int w, int h ) {
 }
 // Search menu page
 void menu_item_search ( int w, int h ) {
-
-    int vertical_border = 0;
-    int horizontal_border = 0;
 
     int fixed_height = 7;
 
@@ -2052,17 +2072,144 @@ void menu_item_search ( int w, int h ) {
         }
     }
 }
+// Status menu page
+void menu_item_status ( int w, int h ) {
+
+    int fixed_height = 7;
+
+    int box_top_w = horizontal_border + 1;
+    int box_bot_w = w - horizontal_border;
+    int box_top_h = vertical_border + 1;
+    int box_bot_h = h - vertical_border;
+
+    draw_box( box_top_w, box_top_h, box_bot_w, box_bot_h, true, 0, default_frame_color, "Status" );
+}
+// Settings menu page
+void menu_item_settings ( int w, int h ) {
+
+    int fixed_height = 7;
+
+    int box1_top_w = horizontal_border + 1;
+    int box1_bot_w = w - horizontal_border;
+    int box1_top_h = vertical_border + 1;
+    int box1_bot_h = 1 - vertical_border + fixed_height;
+
+    draw_box( box1_top_w, box1_top_h, box1_bot_w, box1_bot_h, true, 3, default_frame_color, "Settings" );
+
+    if ( current_settings_type == 0 ) { // Preferences
+        int box2_top_w = horizontal_border + 1;
+        int box2_bot_w = w - horizontal_border;
+        int box2_top_h = vertical_border + fixed_height + 1;
+        int box2_bot_h = h - vertical_border;
+
+        draw_box( box2_top_w, box2_top_h, box2_bot_w, box2_bot_h, true, 4, default_frame_color, "Preferences >" );
+    } else if ( current_settings_type == 1 ) { // Instances
+        int box_left_top_w = 1;
+        int box_left_bot_w = w / 3;
+        int box_left_top_h = fixed_height + 1;
+        int box_left_bot_h = h;
+
+        int box_right_top_w = w / 3;
+        int box_right_bot_w = w;
+        int box_right_top_h = fixed_height + 1;
+        int box_right_bot_h = h;
+
+        std::string current_selected_instance_name;
+        int current_selected_instance;
+        int list_shift = 0;
+        int scrollbar_space;
+        bool long_list = false;
+
+        if ( inv_instances_vector.size() == 0 ) {
+            current_selected_instance_name = "Loading";
+        } else {
+            current_selected_instance_name = inv_instances_vector[current_list_item].name;
+        }
+
+        draw_box(box_left_top_w, box_left_top_h, box_left_bot_w, box_left_bot_h, true, 7, default_frame_color, "< Instances >");
+        draw_box(box_right_top_w, box_right_top_h, box_right_bot_w, box_right_bot_h, true, 8, default_frame_color, current_selected_instance_name);
+
+        if ( inv_instances_vector.size() != 0 ) {
+            // Draw list and selected instance information.
+            int list_length = h - fixed_height - 4;
+            if ( list_length < inv_instances_vector.size() ) { scrollbar_space = 3; long_list = true; } else { scrollbar_space = 0; }
+            if ( current_list_item > list_length - 5 ) {
+                list_shift = inv_videos_vector.size() - current_list_item - 4; // prøøøblem
+            }
+            for ( int line = 0; line < list_length; ++line ) {
+                if ( line < inv_instances_vector.size() ) {
+                    printf("\033[%d;%dH", fixed_height + 3 + line, 5);
+                    std::cout << truncate(inv_instances_vector[line + list_shift].name, box_left_bot_w - box_left_top_w - 7 - scrollbar_space );
+
+                    if ( current_list_item == line + list_shift ) {
+                        printf("\033[%d;%dH", fixed_height + 3 + line, box_left_top_w + 2);
+                        std::cout << color_red << color_bold << "▶" << color_reset;
+                        printf("\033[%d;%dH", fixed_height + 3 + line, box_left_bot_w - 2 - scrollbar_space);
+                        std::cout  << color_red << color_bold << "◀" << color_reset;
+                    }
+                }
+            }
+            if ( long_list ) { // Print scrollbar
+                // Scrollbar Rules
+                int scrollbar_length = list_length + 2;
+                std::string scrollbar_character;
+                std::pair<double, double> from_list = std::make_pair(0, list_length);
+                std::pair<double, double> to_scroll = std::make_pair(0, scrollbar_length);
+                double from_scrollbar_value = current_list_item;
+                int scrollbar_handle = convert_range(from_list, from_scrollbar_value, to_scroll);
+
+                if ( scrollbar_handle <= 1 ) { // Stop scrollbar from clipping
+                    scrollbar_handle = 1;
+                } else if ( scrollbar_handle >= scrollbar_length - 2 ) {
+                    scrollbar_handle = scrollbar_length - 2;
+                }
+
+                // Draw Scrollbar
+                for ( int scrollbar = 0; scrollbar < scrollbar_length; ++scrollbar ) {
+                    printf("\033[%d;%dH", fixed_height + 2 + scrollbar, box_left_bot_w - 2 );
+                    if ( scrollbar == 0 ) {
+                        scrollbar_character = "┳";
+                    } else if ( scrollbar == scrollbar_length - 1 ) {
+                        scrollbar_character = "┻";
+                    } else if ( scrollbar == scrollbar_handle ) {
+                        scrollbar_character = "█";
+                    } else {
+                        scrollbar_character = "┃";
+                    }
+                    std::cout << color_cyan << scrollbar_character << color_reset;
+                }
+            }
+        }
+
+    } else if ( current_settings_type == 2 ) { // Subscriptions
+        int box_left_top_w = 1;
+        int box_left_bot_w = w / 3;
+        int box_left_top_h = fixed_height + 1;
+        int box_left_bot_h = h;
+
+        int box_right_top_w = w / 3;
+        int box_right_bot_w = w;
+        int box_right_top_h = fixed_height + 1;
+        int box_right_bot_h = h;
+
+        draw_box(box_left_top_w, box_left_top_h, box_left_bot_w, box_left_bot_h, true, 7, default_frame_color, "< Subscriptions");
+        draw_box(box_right_top_w, box_right_top_h, box_right_bot_w, box_right_bot_h, true, 8, default_frame_color, "REEE");
+    }
+}
 // Main UI Function
 void draw_ui ( int w, int h ) {
 
     if ( current_menu == 0 ) { // 2 boxes on top of each other
         menu_item_main(w, h);
-    } else if ( current_menu == 1 ) {
+    } else if ( current_menu == 1 ) { // Browse
         menu_item_browse(w, h);
-    } else if ( current_menu == 2 ) {
+    } else if ( current_menu == 2 ) { // Search
         menu_item_search(w, h);
+    } else if ( current_menu == 3 ) { // Status
+        menu_item_status(w, h);
+    } else if ( current_menu == 4 ) { // Settings
+        menu_item_settings(w, h);
     }
-
 }
 // Capture Interrupt
 void capture_interrupt (int signum) {
