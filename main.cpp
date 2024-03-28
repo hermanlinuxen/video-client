@@ -432,6 +432,43 @@ std::string uploaded_format ( int seconds ) {
     formatted_result << result << unit;
     return formatted_result.str();
 }
+// Pretty seconds to string format.
+std::string pretty_format_time ( int seconds ) {
+    if (seconds <= 0) {
+        return "Invalid input";
+    }
+
+    int hours = seconds / 3600;
+    int minutes = (seconds % 3600) / 60;
+    int remaining_seconds = seconds % 60;
+
+    std::string result;
+
+    if ( hours > 0 ) {
+        result += std::to_string(hours) + " Hour";
+        if ( hours > 1 ) {
+            result += "s";
+        }
+        result += " ";
+    }
+
+    if ( minutes > 0 ) {
+        result += std::to_string(minutes) + " Minute";
+        if ( minutes > 1 ) {
+            result += "s";
+        }
+        result += " ";
+    }
+
+    if ( remaining_seconds > 0 ) {
+        result += std::to_string(remaining_seconds) + " Second";
+        if ( remaining_seconds > 1 ) {
+            result += "s";
+        }
+    }
+
+    return result;
+}
 // Views int to abbreviated number, Ex. 154K views
 std::string abbreviated_number(int num) {
     std::string result;
@@ -630,6 +667,7 @@ void update_instances () {
             parse_result << e.what();
             log("Error parsing JSON: " + parse_result.str(), 4);
         }
+        update_ui = true;
     } else {
         log("Curl is unable to contact API: " + URL_instances, 4);
     }
@@ -2115,7 +2153,6 @@ void menu_item_settings ( int w, int h ) {
         int box_right_bot_h = h;
 
         std::string current_selected_instance_name;
-        int current_selected_instance;
         int list_shift = 0;
         int scrollbar_space;
         bool long_list = false;
@@ -2133,9 +2170,14 @@ void menu_item_settings ( int w, int h ) {
             // Draw list and selected instance information.
             int list_length = h - fixed_height - 4;
             if ( list_length < inv_instances_vector.size() ) { scrollbar_space = 3; long_list = true; } else { scrollbar_space = 0; }
-            if ( current_list_item > list_length - 5 ) {
-                list_shift = inv_videos_vector.size() - current_list_item - 4; // prøøøblem
+            if ( current_list_item > list_length - 5 ) { // This seems to work. But not like list in video browser. Consider copying that.
+                int max_list_shift = inv_instances_vector.size() - list_length;
+                list_shift = current_list_item + 5 - list_length;
+                if ( max_list_shift < list_shift ) {
+                    list_shift = max_list_shift;
+                }
             }
+
             for ( int line = 0; line < list_length; ++line ) {
                 if ( line < inv_instances_vector.size() ) {
                     printf("\033[%d;%dH", fixed_height + 3 + line, 5);
@@ -2179,8 +2221,54 @@ void menu_item_settings ( int w, int h ) {
                     std::cout << color_cyan << scrollbar_character << color_reset;
                 }
             }
-        }
 
+            // Draw instance stats and preferences.
+
+            int settings_item_height = fixed_height + 3;
+            int settings_item_width = box_right_top_w + 4;
+            bool instance_enabled = inv_instances_vector[current_list_item].enabled;
+
+            // Title
+            printf("\033[%d;%dH", settings_item_height, settings_item_width); // Title
+            if ( instance_enabled ) {
+                std::cout << color_green << current_selected_instance_name << color_reset;
+            } else {
+                std::cout << color_red << current_selected_instance_name << color_reset;
+            }
+
+            // Enabled Disabled
+            printf("\033[%d;%dH", settings_item_height + 1, settings_item_width);
+            if ( instance_enabled ) {
+                std::cout << color_green << "Instance: Enabled" << color_reset;
+            } else {
+                std::cout << color_red << "Instance: Disabled" << color_reset;
+            }
+
+            // API Enabled
+            printf("\033[%d;%dH", settings_item_height + 2, settings_item_width);
+            if ( inv_instances_vector[current_list_item].api_enabled ) {
+                std::cout << color_green << "API: Enabled" << color_reset;
+            } else {
+                std::cout << color_red << "API: Disabled" << color_reset;
+            }
+
+            // Banned
+            printf("\033[%d;%dH", settings_item_height + 3, settings_item_width);
+            if ( inv_instances_vector[current_list_item].banned ) {
+                std::cout << color_green << "Banned: No" << color_reset;
+            } else {
+                std::cout << color_red << "Banned: Yes" << color_reset;
+            }
+
+            // Last retry
+            printf("\033[%d;%dH", settings_item_height + 3, settings_item_width);
+            int last_retry = inv_instances_vector[current_list_item].last_get;
+            if ( last_retry == 0 ) {
+                std::cout << "No previous failiures.";
+            } else {
+                std::cout << "Last updated: " << pretty_format_time(epoch() - last_retry);
+            }
+        }
     } else if ( current_settings_type == 2 ) { // Subscriptions
         int box_left_top_w = 1;
         int box_left_bot_w = w / 3;
